@@ -1,0 +1,244 @@
+"""Rule-based opponents with recognisable styles.
+
+Preflop, a bot ranks its hand by equity against a random hand and compares the rank with
+thresholds ("plays the top 55% from the button"). Postflop it sorts its hand into a class (monster,
+strong, medium, draw, air) and bets, calls or raises with per-class frequencies. Styles differ only
+in their numbers, so each is easy to describe and to exploit.
+"""
+
+from __future__ import annotations
+
+import random
+from collections.abc import Sequence
+from dataclasses import dataclass
+from functools import cache
+
+from holdem.core.ranges import ALL_CLASSES, Range, class_combo_count, class_of_combo
+from holdem.drills.scenarios import hand_strength
+from holdem.engine.headsup import BIG_BLIND, Action, HeadsUpHand
+from holdem.stories import PREDICATES
+
+CLASSES = ("monster", "strong", "medium", "draw", "air")
+
+
+@cache
+def percentile() -> dict[str, float]:
+    """Share of all combos at least as strong as each hand class (AA is about 0.5%)."""
+    ordered = sorted(ALL_CLASSES, key=lambda c: -hand_strength()[c])
+    result: dict[str, float] = {}
+    total = 0
+    for hand_class in ordered:
+        total += class_combo_count(hand_class)
+        result[hand_class] = total / 1326
+    return result
+
+
+def top_share_range(share: float) -> Range:
+    return Range.of(c for c, p in percentile().items() if p <= share)
+
+
+@dataclass(frozen=True)
+class Style:
+    key: str
+    name: str
+    blurb: str
+    open: float  # raise this share of hands first in from the button
+    limp: float  # otherwise limp this share (calling stations love to limp)
+    three_bet: float  # re-raise this share facing a raise
+    call: float  # call a raise with this share
+    four_bet: float  # shove this share facing a re-raise
+    call_3bet: float  # call a re-raise with this share
+    bet: dict[str, float]  # bet frequency per hand class when checked to
+    stay: dict[str, float]  # continue frequency per hand class facing a bet
+    raise_: dict[str, float]  # raise frequency per hand class facing a bet
+    size: float  # bet size as a share of the pot
+
+    def public(self) -> dict[str, str]:
+        return {"key": self.key, "name": self.name, "blurb": self.blurb}
+
+
+def _f(*values: float) -> dict[str, float]:
+    return dict(zip(CLASSES, values, strict=True))
+
+
+STYLES: dict[str, Style] = {
+    s.key: s
+    for s in (
+        Style(
+            "nit",
+            "Nit",
+            "Plays few hands and bets only when strong. "
+            "Steal its blinds; fold when it fights back.",
+            open=0.3,
+            limp=0.0,
+            three_bet=0.04,
+            call=0.15,
+            four_bet=0.02,
+            call_3bet=0.05,
+            bet=_f(0.9, 0.7, 0.2, 0.15, 0.05),
+            stay=_f(1, 0.8, 0.3, 0.3, 0),
+            raise_=_f(0.5, 0.1, 0, 0.05, 0),
+            size=0.66,
+        ),
+        Style(
+            "tag",
+            "TAG",
+            "Tight and aggressive: a solid regular. Few easy spots, so play fundamentally sound.",
+            open=0.55,
+            limp=0.0,
+            three_bet=0.12,
+            call=0.35,
+            four_bet=0.05,
+            call_3bet=0.12,
+            bet=_f(0.95, 0.8, 0.4, 0.5, 0.25),
+            stay=_f(1, 0.9, 0.55, 0.6, 0.05),
+            raise_=_f(0.6, 0.15, 0, 0.15, 0.03),
+            size=0.66,
+        ),
+        Style(
+            "lag",
+            "LAG",
+            "Loose and aggressive: opens most hands and keeps betting. Call down lighter.",
+            open=0.8,
+            limp=0.0,
+            three_bet=0.2,
+            call=0.45,
+            four_bet=0.08,
+            call_3bet=0.2,
+            bet=_f(1, 0.85, 0.55, 0.7, 0.45),
+            stay=_f(1, 0.95, 0.65, 0.7, 0.15),
+            raise_=_f(0.7, 0.25, 0.05, 0.3, 0.1),
+            size=0.75,
+        ),
+        Style(
+            "station",
+            "Calling station",
+            "Calls far too much and rarely raises. Never bluff it; value bet relentlessly.",
+            open=0.25,
+            limp=0.95,
+            three_bet=0.04,
+            call=0.8,
+            four_bet=0.02,
+            call_3bet=0.5,
+            bet=_f(0.6, 0.4, 0.2, 0.1, 0.05),
+            stay=_f(1, 1, 0.95, 0.85, 0.35),
+            raise_=_f(0.2, 0, 0, 0, 0),
+            size=0.5,
+        ),
+        Style(
+            "maniac",
+            "Maniac",
+            "Raises and bluffs constantly. Let it hang itself: call wider and trap.",
+            open=0.95,
+            limp=0.0,
+            three_bet=0.4,
+            call=0.4,
+            four_bet=0.2,
+            call_3bet=0.4,
+            bet=_f(1, 0.9, 0.8, 0.8, 0.7),
+            stay=_f(1, 0.95, 0.7, 0.7, 0.35),
+            raise_=_f(0.8, 0.4, 0.2, 0.4, 0.3),
+            size=1.0,
+        ),
+    )
+}
+
+
+def hand_class(hole: tuple[int, int], board: list[int]) -> str:
+    if PREDICATES["two_pair_plus"](hole, board):
+        return "monster"
+    if PREDICATES["top_pair"](hole, board) or PREDICATES["overpair"](hole, board):
+        return "strong"
+    if PREDICATES["pair_plus"](hole, board):
+        return "medium"
+    if PREDICATES["draw"](hole, board):
+        return "draw"
+    return "air"
+
+
+def preflop_raises(hand: HeadsUpHand) -> int:
+    """How many raises (not counting blinds) happened preflop so far."""
+    return sum(1 for a in hand.log if a.street == "preflop" and a.kind == "raise")
+
+
+@dataclass
+class Bot:
+    style: Style
+    rng: random.Random
+
+    def decide(self, hand: HeadsUpHand) -> tuple[str, int | None]:
+        """Choose an action for the player to act (assumed to be this bot)."""
+        legal = hand.legal()
+        if hand.street == 0:
+            return self._preflop(hand)
+        me = hand.current
+        group = hand_class(hand.hole[me], hand.board)
+        roll = self.rng.random()
+        pot = hand.total_pot
+        if legal.can_check:
+            if legal.can_raise and roll < self.style.bet[group]:
+                return "bet", self._size(legal.min_raise_to, legal.max_raise_to, pot)
+            return "check", None
+        stay = self.style.stay[group]
+        before_bet = pot - legal.to_call  # the pot the bet was made into
+        if legal.to_call >= before_bet * 0.6 and group in ("medium", "draw", "air"):
+            stay *= 0.7  # bets of 60% pot or more push weaker hands out
+        if legal.can_raise and roll < self.style.raise_[group]:
+            to = max(legal.min_raise_to, hand.bets[1 - me] * 3)
+            return "raise", min(to, legal.max_raise_to)
+        if roll < stay or legal.to_call <= BIG_BLIND // 2:
+            return "call", None
+        return "fold", None
+
+    def _size(self, low: int, high: int, pot: int) -> int:
+        return min(high, max(low, round(pot * self.style.size)))
+
+    def _preflop(self, hand: HeadsUpHand) -> tuple[str, int | None]:
+        legal = hand.legal()
+        me = hand.current
+        strength = percentile()[class_of_combo(*hand.hole[me])]
+        raises = preflop_raises(hand)
+        s = self.style
+        if raises == 0 and me == hand.button and hand.bets[me] < BIG_BLIND:
+            # First in from the button.
+            if strength <= s.open:
+                return "raise", min(legal.max_raise_to, 5)  # 2.5bb
+            if strength <= s.limp:
+                return "call", None
+            return "fold", None
+        if raises == 0:
+            # Big blind after a limp.
+            if legal.can_raise and strength <= s.three_bet:
+                return "raise", min(legal.max_raise_to, 8)
+            return "check", None
+        if raises == 1:
+            if legal.can_raise and strength <= s.three_bet:
+                return "raise", min(
+                    legal.max_raise_to, max(legal.min_raise_to, hand.bets[1 - me] * 3)
+                )
+            if strength <= s.call:
+                return "call", None
+            return "fold", None
+        if legal.can_raise and strength <= s.four_bet:
+            return "raise", legal.max_raise_to  # four-bets go all in
+        if strength <= s.call_3bet or legal.to_call <= BIG_BLIND:
+            return "call", None
+        return "fold", None
+
+
+def estimated_range(style: Style, log: Sequence[Action], bot: int, button: int) -> Range:
+    """The bot's likely range from its style and its preflop actions in ``log``."""
+    preflop = [a for a in log if a.street == "preflop" and a.kind != "post"]
+    mine = [a.kind for a in preflop if a.player == bot]
+    raises = mine.count("raise")
+    if raises >= 2:
+        return top_share_range(style.four_bet)
+    if raises == 1:
+        raised_at = next(i for i, a in enumerate(preflop) if a.player == bot and a.kind == "raise")
+        reraised = any(a.kind == "raise" and a.player != bot for a in preflop[raised_at + 1 :])
+        if reraised and "call" in mine[mine.index("raise") :]:
+            return top_share_range(style.call_3bet)
+        return top_share_range(style.open if bot == button else style.three_bet)
+    if mine and mine[0] == "call":
+        return top_share_range(max(style.limp, style.open) if bot == button else style.call)
+    return top_share_range(1.0)  # checked the big blind option: anything

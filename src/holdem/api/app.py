@@ -4,19 +4,20 @@ from __future__ import annotations
 
 import random
 from collections import OrderedDict
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from datetime import UTC, datetime, tzinfo
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
 import tzlocal
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine
-from sqlalchemy.orm import Session
 
+from holdem.api.deps import SessionDep
+from holdem.api.play_routes import register_play_routes
 from holdem.curriculum import CONCEPTS, COURSE_MATERIALS
 from holdem.db import drill_stats, make_engine, record_attempt
 from holdem.drills.base import Question, grade
@@ -64,14 +65,6 @@ class AnswerRequest(BaseModel):
     elapsed_ms: int | None = Field(default=None, ge=0)
 
 
-def get_session(request: Request) -> Iterator[Session]:
-    with Session(request.app.state.engine) as session:
-        yield session
-
-
-SessionDep = Annotated[Session, Depends(get_session)]
-
-
 def utc_now() -> datetime:
     return datetime.now(UTC)
 
@@ -90,6 +83,7 @@ def create_app(
     app = FastAPI(title="Winning Texas Hold'em")
     app.state.engine = engine or make_engine()
     app.state.questions = QuestionStore()
+    register_play_routes(app, clock)
 
     @app.get("/api/health")
     def health() -> dict[str, str]:

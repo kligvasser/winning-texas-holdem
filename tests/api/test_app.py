@@ -229,3 +229,44 @@ def test_scenario_steps_are_served_one_after_another(client):
         seen += 1
         question = result["follow_up"]
     assert seen == 3
+
+
+def test_play_flow_and_hand_review(client):
+    styles = client.get("/api/play/styles").json()
+    assert {s["key"] for s in styles} == {"nit", "tag", "lag", "station", "maniac"}
+    assert client.post("/api/play", json={"style": "shark"}).status_code == 404
+    state = client.post("/api/play", json={"style": "station", "seed": 2}).json()
+    sid = state["id"]
+    assert state["hand"]["hole"][0] is not None
+    assert client.post("/api/play/nope/act", json={"kind": "check"}).status_code == 404
+    assert client.post(f"/api/play/{sid}/next").status_code in (200, 400)
+    for _ in range(40):
+        if state["hand"]["finished"]:
+            break
+        coach = client.get(f"/api/play/{sid}/coach").json()
+        assert "equity" in coach
+        bad = client.post(f"/api/play/{sid}/act", json={"kind": "raise", "to": 1})
+        assert bad.status_code == 400
+        kind = "check" if state["legal"]["can_check"] else "call"
+        state = client.post(f"/api/play/{sid}/act", json={"kind": kind}).json()
+    assert state["hand"]["finished"]
+    assert "hand_id" in state
+    assert client.get(f"/api/play/{sid}/coach").status_code == 400
+    assert client.post(f"/api/play/{sid}/act", json={"kind": "check"}).status_code == 400
+
+    listing = client.get("/api/hands").json()
+    assert listing["stats"]["hands"] >= 1
+    hand_id = listing["hands"][0]["id"]
+    detail = client.get(f"/api/hands/{hand_id}").json()
+    assert detail["record"]["hand"]["hole"][1] is not None
+    assert client.get("/api/hands/999999").status_code == 404
+
+    state = client.post(f"/api/play/{sid}/next").json()
+    assert state["hands_played"] >= 1
+
+
+def test_play_sessions_are_capped(client):
+    first = client.post("/api/play", json={"style": "nit", "seed": 1}).json()["id"]
+    for seed in range(25):
+        client.post("/api/play", json={"style": "nit", "seed": seed + 2})
+    assert client.get(f"/api/play/{first}/coach").status_code == 404

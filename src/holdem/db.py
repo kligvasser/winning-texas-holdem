@@ -52,6 +52,19 @@ class ReviewCard(Base):
     card: Mapped[str]
 
 
+class PlayedHand(Base):
+    """A finished hand against a bot, with its review, stored as JSON."""
+
+    __tablename__ = "played_hands"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(index=True)  # naive UTC
+    style: Mapped[str] = mapped_column(String(32))
+    net_bb: Mapped[float]
+    worst_loss_bb: Mapped[float]
+    record: Mapped[str]
+
+
 def database_url() -> str:
     data_dir = Path(os.environ.get("HOLDEM_DATA_DIR", DEFAULT_DATA_DIR))
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -150,3 +163,51 @@ def drill_stats(session: Session) -> list[DrillStats]:
             )
         )
     return result
+
+
+def save_hand(session: Session, record: dict[str, Any], now: datetime) -> PlayedHand:
+    losses = [d["loss_bb"] for d in record["decisions"]]
+    row = PlayedHand(
+        created_at=to_naive_utc(now),
+        style=record["style"],
+        net_bb=record["net_bb"],
+        worst_loss_bb=max(losses, default=0.0),
+        record=json.dumps(record),
+    )
+    session.add(row)
+    session.commit()
+    return row
+
+
+def hand_summary(row: PlayedHand) -> dict[str, Any]:
+    record = json.loads(row.record)
+    return {
+        "id": row.id,
+        "created_at": row.created_at.isoformat(),
+        "style": row.style,
+        "net_bb": row.net_bb,
+        "worst_loss_bb": row.worst_loss_bb,
+        "hole": record["hand"]["hole"][0],
+        "board": record["hand"]["board"],
+        "mistakes": sum(d["verdict"] == "mistake" for d in record["decisions"]),
+    }
+
+
+def play_stats(session: Session) -> dict[str, Any]:
+    """Your heads-up numbers across stored hands: results, VPIP and PFR."""
+    rows = session.scalars(select(PlayedHand)).all()
+    vpip = pfr = 0
+    for row in rows:
+        log = json.loads(row.record)["hand"]["log"]
+        mine = [a["kind"] for a in log if a["street"] == "preflop" and a["player"] == 0]
+        vpip += any(k in ("call", "raise") for k in mine)
+        pfr += "raise" in mine
+    n = len(rows)
+    net = round(sum(r.net_bb for r in rows), 2)
+    return {
+        "hands": n,
+        "net_bb": net,
+        "bb_per_100": round(net / n * 100, 1) if n else None,
+        "vpip": round(vpip / n, 3) if n else None,
+        "pfr": round(pfr / n, 3) if n else None,
+    }
