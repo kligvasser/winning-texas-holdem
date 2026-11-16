@@ -10,6 +10,7 @@ from holdem.core.cards import (
     make_card,
     parse_card,
     parse_cards,
+    pretty_cards,
     rank_of,
     remaining_deck,
     suit_of,
@@ -75,3 +76,7 @@ def test_remaining_deck_and_deal():
     assert len(set(dealt)) == 5
     assert not set(dealt) & set(dead)
     assert deal(random.Random(1), 5, dead) == dealt
+
+
+def test_pretty_cards():
+    assert pretty_cards(parse_cards("AsTh2c")) == "A♠ 10♥ 2♣"

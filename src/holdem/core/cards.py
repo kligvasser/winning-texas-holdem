@@ -79,6 +79,15 @@ def cards_str(cards: Iterable[Card]) -> str:
     return "".join(card_str(c) for c in cards)
 
 
+def pretty_cards(cards: Iterable[Card]) -> str:
+    """Readable form for explanations, e.g. ``"A♠ 10♥"``."""
+    parts = []
+    for card in cards:
+        rank = RANKS[rank_of(card)]
+        parts.append(("10" if rank == "T" else rank) + SUIT_SYMBOLS[SUITS[suit_of(card)]])
+    return " ".join(parts)
+
+
 def remaining_deck(dead: Iterable[Card]) -> list[Card]:
     dead_set = set(dead)
     return [c for c in FULL_DECK if c not in dead_set]

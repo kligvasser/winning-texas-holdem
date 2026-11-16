@@ -9,7 +9,7 @@ from typing import ClassVar
 
 from holdem.core import odds
 from holdem.core.board import draws, outs_against
-from holdem.core.cards import RANKS, Card, cards_str, deal, make_card, remaining_deck
+from holdem.core.cards import RANKS, Card, deal, make_card, pretty_cards, remaining_deck
 from holdem.core.equity import calculate_equity
 from holdem.core.evaluator import Category, category, evaluate
 from holdem.core.ranges import Combo, Range, class_of_combo, live_combos, normalize_class
@@ -118,7 +118,7 @@ class NutsDrill(Drill):
             answer=answer,
             choices=CATEGORY_CHOICES,
             payload={"board": card_list(board)},
-            explanation=(f"The nuts is {answer.lower()}, for example {cards_str(combo)}.",),
+            explanation=(f"The nuts is {answer.lower()}, for example {pretty_cards(combo)}.",),
             highlight=tuple(card_list(combo)),
         )
 
@@ -138,11 +138,13 @@ class OutsDrill(Drill):
             result = outs_against(hero, villain, board)
             if result.status < 0 and 3 <= result.count <= 16:
                 break
-        lines = [f"Winning cards ({result.count}): {cards_str(result.winning)}."]
+        lines = [f"Winning cards ({result.count}): {pretty_cards(result.winning)}."]
         if result.tainted:
-            lines.append(f"Tainted: {cards_str(result.tainted)} improve your hand but still lose.")
+            lines.append(
+                f"Tainted: {pretty_cards(result.tainted)} improve your hand but still lose."
+            )
         if result.tying:
-            lines.append(f"Split pot: {cards_str(result.tying)}.")
+            lines.append(f"Split pot: {pretty_cards(result.tying)}.")
         street = "turn" if board_size == 3 else "river"
         return Question(
             drill=self.key,
