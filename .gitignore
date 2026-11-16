@@ -33,7 +33,7 @@ web/.svelte-kit/
 *.sqlite-journal
 *.sqlite-wal
 *.sqlite-shm
-data/
+/data/
 
 # Editors and OS
 .DS_Store
