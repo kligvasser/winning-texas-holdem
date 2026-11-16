@@ -10,6 +10,8 @@ vi.mock('./lib/api', () => ({
     stats: vi.fn(() => Promise.resolve([])),
     today: vi.fn(() => Promise.resolve({ due: [], new: [], extra: [], queue: [] })),
     curriculum: vi.fn(() => Promise.resolve({ concepts: [], cards: {}, materials: [] })),
+    spots: vi.fn(() => Promise.resolve([])),
+    leaks: vi.fn(() => Promise.resolve([])),
     question: vi.fn(() => new Promise(() => {})),
     answer: vi.fn(),
   },
@@ -44,6 +46,9 @@ describe('App', () => {
 
     await visit('math-lab/pot-odds')
     expect(await screen.findByText('Dealing…')).toBeInTheDocument()
+
+    await visit('preflop')
+    expect(await screen.findByRole('heading', { name: 'Preflop' })).toBeInTheDocument()
 
     await visit('stats')
     expect(await screen.findByText(/No answers yet/)).toBeInTheDocument()

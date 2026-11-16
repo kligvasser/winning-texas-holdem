@@ -215,15 +215,36 @@ CONCEPTS: tuple[Concept, ...] = (
         id="preflop-ranges",
         title="Opening ranges by position",
         tier=2,
-        summary="Which hands to play from each seat. Drills arrive with the Preflop Trainer.",
+        summary="Which hands to open when it is folded to you, seat by seat.",
         points=(
-            "Later position means more hands: the button opens several times more hands than "
-            "under the gun.",
-            "Course-era ranges are dated; modern solver-based charts are wider on the button "
-            "and tighter early.",
+            "Later position means more hands: in the baseline chart UTG opens about 19% of "
+            "hands, the cutoff about 29% and the button about 44%.",
+            "Learn the structure, not cells: pairs, suited aces and suited broadways open almost "
+            "everywhere; offsuit hands and small suited connectors are added as you move "
+            "towards the button.",
+            "Course-era ranges are dated; modern charts are wider on the button and tighter "
+            "early. The built-in charts are a self-authored baseline, not solver output.",
         ),
         prerequisites=("preflop-equity",),
         lectures=(L15_3, L15_4),
+        drills=("preflop-open",),
+    ),
+    Concept(
+        id="facing-a-raise",
+        title="Facing a raise",
+        tier=2,
+        summary="3-bet, call or fold against an open, depending on who opened and where you sit.",
+        points=(
+            "Defend tighter against early-position opens: their range is stronger.",
+            "The big blind closes the action and gets a good price, so it defends the widest.",
+            "3-bet hands that are well ahead of the opener's range for value, plus some suited "
+            "hands with blockers (A5s, A4s) or playability as bluffs.",
+            "Out of position in the small blind, a 3-bet-or-fold strategy avoids playing a "
+            "bloated multiway pot without position.",
+        ),
+        prerequisites=("preflop-ranges", "pot-odds"),
+        lectures=(L16_4, L15_4),
+        drills=("preflop-defend",),
     ),
     Concept(
         id="spr",

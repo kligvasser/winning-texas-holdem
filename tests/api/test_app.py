@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from holdem.api.app import QuestionStore, create_app
+from holdem.core.ranges import grid_class
 from holdem.drills.base import AnswerKind, Question
 from holdem.drills.math_lab import PreflopEquityDrill
 
@@ -152,3 +153,41 @@ def test_serves_built_front_end(engine, tmp_path):
     assert client.get("/favicon.svg").text == "<svg/>"
     assert client.get("/assets/app.js").text == "console.log(1)"
     assert client.get("/../secret").text == "<html>app</html>"
+
+
+def test_preflop_endpoints_and_leaks(client):
+    spots = client.get("/api/preflop/spots").json()
+    assert {s["id"] for s in spots} >= {"utg-open", "bb-vs-btn"}
+    utg = next(s for s in spots if s["id"] == "utg-open")
+    raise_cells = [
+        grid_class(r, c)
+        for r, row in enumerate(utg["grid"])
+        for c, action in enumerate(row)
+        if action == "Raise"
+    ]
+    result = client.post(
+        "/api/preflop/paint", json={"spot": "utg-open", "action": "Raise", "classes": raise_cells}
+    ).json()
+    assert result["combos_wrong"] == 0
+    assert (
+        client.post(
+            "/api/preflop/paint", json={"spot": "nope", "action": "Raise", "classes": []}
+        ).status_code
+        == 404
+    )
+    assert (
+        client.post(
+            "/api/preflop/paint", json={"spot": "utg-open", "action": "Fold", "classes": []}
+        ).status_code
+        == 400
+    )
+
+    for seed in range(6):
+        question = ask(client, key="preflop-open", seed=seed)
+        client.post("/api/answers", json={"question_id": question["id"], "response": "Fold"})
+    leaks = client.get("/api/preflop/leaks").json()
+    assert leaks
+    assert sum(leak["attempts"] for leak in leaks) == 6
+    accuracies = [leak["accuracy"] for leak in leaks]
+    assert accuracies == sorted(accuracies)
+    assert all(m["count"] >= 1 for leak in leaks for m in leak["missed_hands"])

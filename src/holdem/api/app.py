@@ -19,8 +19,10 @@ from sqlalchemy.orm import Session
 from holdem.curriculum import CONCEPTS, COURSE_MATERIALS
 from holdem.db import drill_stats, make_engine, record_attempt
 from holdem.drills.base import Question, grade
-from holdem.drills.math_lab import ALL_DRILLS, DRILLS
+from holdem.drills.registry import ALL_DRILLS, DRILLS
+from holdem.preflop import SPOTS, SPOTS_BY_ID, grade_paint
 from holdem.scheduler import card_summary, concept_progress, daily_plan, on_attempt
+from holdem.stats import preflop_leaks
 
 WEB_DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
 
@@ -46,6 +48,12 @@ class QuestionStore:
 
 class QuestionRequest(BaseModel):
     seed: int | None = None
+
+
+class PaintRequest(BaseModel):
+    spot: str
+    action: str
+    classes: list[str]
 
 
 class AnswerRequest(BaseModel):
@@ -131,6 +139,37 @@ def create_app(
             "cards": card_summary(session, clock()),
             "materials": [{"label": m.label, "url": m.url} for m in COURSE_MATERIALS],
         }
+
+    @app.get("/api/preflop/spots")
+    def preflop_spots() -> list[dict[str, Any]]:
+        return [s.public() for s in SPOTS]
+
+    @app.post("/api/preflop/paint")
+    def preflop_paint(body: PaintRequest, session: SessionDep) -> dict[str, Any]:
+        spot = SPOTS_BY_ID.get(body.spot)
+        if spot is None:
+            raise HTTPException(404, f"unknown spot {body.spot!r}")
+        try:
+            result = grade_paint(spot, body.action, body.classes)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        record_attempt(
+            session,
+            created_at=clock(),
+            drill="preflop-paint",
+            concept="preflop-ranges" if spot.kind == "open" else "facing-a-raise",
+            question={"spot": spot.id, "action": body.action, "painted": len(body.classes)},
+            response=len(body.classes),
+            expected=len(result.correct) + len(result.missed),
+            correct=result.combos_wrong == 0,
+            error=float(result.combos_wrong),
+            elapsed_ms=None,
+        )
+        return result.public()
+
+    @app.get("/api/preflop/leaks")
+    def leaks(session: SessionDep) -> list[dict[str, Any]]:
+        return [leak.public() for leak in preflop_leaks(session)]
 
     @app.get("/api/stats")
     def stats(session: SessionDep) -> list[dict[str, Any]]:

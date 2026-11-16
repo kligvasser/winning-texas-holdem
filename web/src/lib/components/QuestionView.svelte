@@ -7,6 +7,9 @@
 </script>
 
 <section class="felt" aria-label="Situation">
+  {#if typeof p.position === 'string'}
+    <div class="chips"><span>Position <strong>{p.position}</strong></span></div>
+  {/if}
   {#if p.pot !== undefined}
     <div class="chips">
       <span>Pot <strong>{p.pot}</strong></span>

@@ -40,6 +40,11 @@ describe('QuestionView', () => {
     for (const label of ['Board', 'You', 'Villain']) expect(screen.getByText(label)).toBeInTheDocument()
   })
 
+  it('shows the position for preflop questions', () => {
+    render(QuestionView, { question: { ...numberQuestion, payload: { position: 'CO', hole: ['As', 'Kd'] } } })
+    expect(screen.getByText('CO')).toBeInTheDocument()
+  })
+
   it('shows players for showdown questions', () => {
     render(QuestionView, { question: choiceQuestion })
     expect(screen.getByText('Player 2')).toBeInTheDocument()
@@ -141,6 +146,23 @@ describe('Feedback', () => {
     const due = new Date(Date.now() + 3 * 86_400_000).toISOString()
     render(Feedback, { result: { ...correctResult, review: { rating: 'good', due } }, onnext: vi.fn() })
     expect(screen.getByText(/Review recorded \(good\)\. This drill comes back in 3 days\./)).toBeInTheDocument()
+  })
+
+  it('reveals the chart for preflop answers', () => {
+    const grid = Array.from({ length: 13 }, () => Array<string>(13).fill('Fold'))
+    render(Feedback, {
+      result: { ...wrongResult, reveal: { grid, hand: 'A9o', choices: ['Raise', 'Fold'] } },
+      onnext: vi.fn(),
+    })
+    expect(screen.getByRole('grid', { name: 'Chart for this spot' })).toBeInTheDocument()
+    expect(screen.getByRole('gridcell', { name: 'A9o: Fold' })).toHaveClass('hl')
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent?.trim())).toContain('Raise')
+  })
+
+  it('reveals a chart even without listed choices', () => {
+    const grid = Array.from({ length: 13 }, () => Array<string>(13).fill('Fold'))
+    render(Feedback, { result: { ...wrongResult, reveal: { grid } }, onnext: vi.fn() })
+    expect(screen.getByRole('grid')).toBeInTheDocument()
   })
 
   it('shows unitless numeric errors', () => {

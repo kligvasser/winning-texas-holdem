@@ -3,7 +3,7 @@ import pytest
 from holdem.core.cards import parse_cards
 from holdem.core.equity import calculate_equity
 from holdem.curriculum import CONCEPT_OF_DRILL, CONCEPTS, CONCEPTS_BY_ID
-from holdem.drills.math_lab import ALL_DRILLS
+from holdem.drills.registry import ALL_DRILLS
 
 
 def test_ids_unique_and_prerequisites_valid():

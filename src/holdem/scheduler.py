@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from holdem.curriculum import CONCEPTS, CONCEPTS_BY_ID
 from holdem.db import Attempt, ReviewCard
-from holdem.drills.math_lab import ALL_DRILLS, DRILLS
+from holdem.drills.registry import ALL_DRILLS, DRILLS
 
 BLOCK_SIZE = 3
 SLOW_MS = 25_000

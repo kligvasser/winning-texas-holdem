@@ -21,6 +21,10 @@
   --suit-hearts: #c62828;
   --suit-diamonds: #1565c0;
   --suit-clubs: #2e7d32;
+  --act-raise: #e2685a;
+  --act-call: #4f9d69;
+  --act-fold: #e4e7e4;
+  --act-fold-text: #7b857f;
   font-family:
     system-ui,
     -apple-system,
@@ -46,6 +50,10 @@
     --felt: #0a3d24;
     --felt-light: #125c39;
     --card-bg: #f7f7f2;
+    --act-raise: #c4554a;
+    --act-call: #3d8656;
+    --act-fold: #242d28;
+    --act-fold-text: #7d8a83;
   }
 }
 

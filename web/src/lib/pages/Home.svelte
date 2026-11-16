@@ -27,6 +27,10 @@
     <strong>Math Lab</strong>
     <span>Outs, pot odds, equity, combos, flop odds, MDF and more.</span>
   </a>
+  <a class="tile" href={href('preflop')}>
+    <strong>Preflop</strong>
+    <span>Opening and defending charts, paint-the-range, and your weakest spots.</span>
+  </a>
   <a class="tile" href={href('stats')}>
     <strong>Progress</strong>
     <span>Accuracy, speed and estimation bias for each drill.</span>

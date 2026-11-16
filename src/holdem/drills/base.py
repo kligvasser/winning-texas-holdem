@@ -36,6 +36,7 @@ class Question:
     tolerance: float = 0.0
     explanation: tuple[str, ...] = ()
     highlight: tuple[str, ...] = ()
+    reveal: dict[str, Any] = field(default_factory=dict)  # extra data shown after answering
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
     def public(self) -> dict[str, Any]:
@@ -59,6 +60,7 @@ class Grade:
     error: float | None  # signed (response - expected) for numeric answers
     explanation: tuple[str, ...]
     highlight: tuple[str, ...]
+    reveal: dict[str, Any] = field(default_factory=dict)
 
     def public(self) -> dict[str, Any]:
         return {
@@ -68,6 +70,7 @@ class Grade:
             "error": self.error,
             "explanation": list(self.explanation),
             "highlight": list(self.highlight),
+            "reveal": self.reveal,
         }
 
 
@@ -82,7 +85,13 @@ def grade(question: Question, response: float | str) -> Grade:
         error = value - expected
         correct = abs(error) <= question.tolerance + 1e-9
         return Grade(
-            correct, expected, value, round(error, 4), question.explanation, question.highlight
+            correct,
+            expected,
+            value,
+            round(error, 4),
+            question.explanation,
+            question.highlight,
+            question.reveal,
         )
     if response not in question.choices:
         raise ValueError(f"{response!r} is not one of the choices")
@@ -93,6 +102,7 @@ def grade(question: Question, response: float | str) -> Grade:
         None,
         question.explanation,
         question.highlight,
+        question.reveal,
     )
 
 

@@ -40,6 +40,37 @@ export interface GradeResult {
   explanation: string[]
   highlight: string[]
   review?: Review | null
+  reveal?: { grid?: string[][]; hand?: string; choices?: string[] }
+}
+
+export interface Spot {
+  id: string
+  position: string
+  situation: string
+  kind: 'open' | 'defend'
+  choices: string[]
+  note: string
+  source: string
+  grid: string[][]
+  frequencies: Record<string, number>
+}
+
+export interface PaintResult {
+  correct: string[]
+  missed: string[]
+  extra: string[]
+  combos_wrong: number
+  accuracy: number
+}
+
+export interface SpotLeak {
+  spot: string
+  position: string
+  situation: string
+  attempts: number
+  correct: number
+  accuracy: number
+  missed_hands: { hand: string; count: number }[]
 }
 
 export interface DailyPlan {
@@ -133,4 +164,11 @@ export const api = {
   stats: () => request<DrillStats[]>('/api/stats'),
   today: () => request<DailyPlan>('/api/today'),
   curriculum: () => request<Curriculum>('/api/curriculum'),
+  spots: () => request<Spot[]>('/api/preflop/spots'),
+  paint: (spot: string, action: string, classes: string[]) =>
+    request<PaintResult>('/api/preflop/paint', {
+      method: 'POST',
+      body: JSON.stringify({ spot, action, classes }),
+    }),
+  leaks: () => request<SpotLeak[]>('/api/preflop/leaks'),
 }

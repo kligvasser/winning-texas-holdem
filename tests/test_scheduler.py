@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from holdem import scheduler
 from holdem.db import ReviewCard, record_attempt
-from holdem.drills.math_lab import ALL_DRILLS, DRILLS
+from holdem.drills.registry import ALL_DRILLS, DRILLS
 from holdem.scheduler import (
     BLOCK_SIZE,
     NEW_PER_DAY,

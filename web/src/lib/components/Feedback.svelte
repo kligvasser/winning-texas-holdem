@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { GradeResult } from '../api'
   import { signed, until } from '../format'
+  import ActionLegend from './ActionLegend.svelte'
   import CardRow from './CardRow.svelte'
+  import RangeGrid from './RangeGrid.svelte'
 
   let {
     result,
@@ -34,6 +36,12 @@
       Review recorded ({result.review.rating}). This drill comes back {until(result.review.due)}.
     </p>
   {/if}
+  {#if result.reveal?.grid}
+    <div class="chart">
+      <RangeGrid grid={result.reveal.grid} highlight={result.reveal.hand} label="Chart for this spot" />
+      <ActionLegend actions={result.reveal.choices ?? []} />
+    </div>
+  {/if}
   {#if result.highlight.length}
     <div class="key-cards"><CardRow label="Key cards" cards={result.highlight} /></div>
   {/if}
@@ -64,6 +72,9 @@
   .review {
     font-size: 0.9rem;
     color: var(--muted);
+  }
+  .chart {
+    margin-bottom: 1rem;
   }
   .key-cards {
     --card-w: 2.6rem;

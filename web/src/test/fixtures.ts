@@ -1,4 +1,4 @@
-import type { Concept, Curriculum, DailyPlan, DrillMeta, DrillStats, GradeResult, Question } from '../lib/api'
+import type { Concept, Curriculum, DailyPlan, DrillMeta, DrillStats, GradeResult, Question, Spot, SpotLeak } from '../lib/api'
 
 export const drills: DrillMeta[] = [
   { key: 'pot-odds', title: 'Pot odds', concept: 'pot-odds', tier: 1, description: 'Need?' },
@@ -82,3 +82,38 @@ export const curriculum: Curriculum = {
   cards: {},
   materials: [{ label: '2016 lecture slides', url: 'https://ocw.mit.edu/slides' }],
 }
+
+const fold13 = (): string[] => Array<string>(13).fill('Fold')
+export const utgGrid: string[][] = Array.from({ length: 13 }, (_, r) =>
+  r === 0 ? ['Raise', 'Raise', ...Array<string>(11).fill('Fold')] : fold13(),
+)
+
+export const spots: Spot[] = [
+  {
+    id: 'utg-open',
+    position: 'UTG',
+    situation: 'Folded to you under the gun.',
+    kind: 'open',
+    choices: ['Raise', 'Fold'],
+    note: 'Tight up front.',
+    source: 'Baseline chart (self-authored, not solver output)',
+    grid: utgGrid,
+    frequencies: { Raise: 0.19, Fold: 0.81 },
+  },
+  {
+    id: 'bb-vs-btn',
+    position: 'BB',
+    situation: 'The button opens.',
+    kind: 'defend',
+    choices: ['3-bet', 'Call', 'Fold'],
+    note: 'Defend wide.',
+    source: 'Baseline chart (self-authored, not solver output)',
+    grid: utgGrid,
+    frequencies: { '3-bet': 0.06, Call: 0.44, Fold: 0.5 },
+  },
+]
+
+export const leaks: SpotLeak[] = [
+  { spot: 'utg-open', position: 'UTG', situation: 'Folded to you under the gun.', attempts: 4, correct: 1, accuracy: 0.25, missed_hands: [{ hand: 'A9o', count: 2 }] },
+  { spot: 'bb-vs-btn', position: 'BB', situation: 'The button opens.', attempts: 2, correct: 2, accuracy: 1, missed_hands: [] },
+]

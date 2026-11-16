@@ -32,6 +32,19 @@ describe('api', () => {
     expect(fetch).toHaveBeenLastCalledWith('/api/curriculum', expect.anything())
   })
 
+  it('calls the preflop endpoints', async () => {
+    const fetch = mockFetch([])
+    await api.spots()
+    expect(fetch).toHaveBeenLastCalledWith('/api/preflop/spots', expect.anything())
+    await api.leaks()
+    expect(fetch).toHaveBeenLastCalledWith('/api/preflop/leaks', expect.anything())
+    await api.paint('utg-open', 'Raise', ['AA'])
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/preflop/paint',
+      expect.objectContaining({ method: 'POST', body: '{"spot":"utg-open","action":"Raise","classes":["AA"]}' }),
+    )
+  })
+
   it('asks for a question with and without a seed', async () => {
     const fetch = mockFetch({ id: 'q' })
     await api.question('pot odds', 3)

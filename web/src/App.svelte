@@ -2,6 +2,7 @@
   import Home from './lib/pages/Home.svelte'
   import Learn from './lib/pages/Learn.svelte'
   import MathLab from './lib/pages/MathLab.svelte'
+  import Preflop from './lib/pages/Preflop.svelte'
   import Stats from './lib/pages/Stats.svelte'
   import Today from './lib/pages/Today.svelte'
   import { href, router } from './lib/router.svelte'
@@ -10,6 +11,7 @@
     { page: 'today', label: 'Today' },
     { page: 'learn', label: 'Learn' },
     { page: 'math-lab', label: 'Math Lab' },
+    { page: 'preflop', label: 'Preflop' },
     { page: 'stats', label: 'Progress' },
   ]
   const route = $derived(router.route)
@@ -39,6 +41,10 @@
     {#key route.params[0]}
       <MathLab selected={route.params[0]} />
     {/key}
+  {:else if route.page === 'preflop'}
+    {#key route.params.join('/')}
+      <Preflop params={route.params} />
+    {/key}
   {:else if route.page === 'stats'}
     <Stats />
   {:else}
@@ -66,8 +72,11 @@
   nav {
     display: flex;
     gap: 0.25rem;
+    max-width: 100%;
+    overflow-x: auto;
   }
   nav a {
+    white-space: nowrap;
     padding: 0.4rem 0.75rem;
     border-radius: 0.5rem;
     color: var(--muted);
@@ -77,6 +86,11 @@
     background: var(--accent-soft);
     color: var(--text);
     font-weight: 600;
+  }
+  @media (max-width: 520px) {
+    nav a {
+      padding: 0.4rem 0.5rem;
+    }
   }
   main {
     max-width: 960px;
