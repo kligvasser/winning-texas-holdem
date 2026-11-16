@@ -18,14 +18,14 @@ from holdem.drills.base import AnswerKind, Drill, Question, card_list, pct
 CATEGORY_CHOICES = tuple(c.label for c in sorted(Category, reverse=True))
 BET_SIZES = (0.25, 1 / 3, 0.5, 2 / 3, 0.75, 1.0, 1.5, 2.0)
 BET_SIZE_LABELS = {
-    0.25: "1/4",
-    1 / 3: "1/3",
-    0.5: "1/2",
-    2 / 3: "2/3",
-    0.75: "3/4",
-    1.0: "pot",
-    1.5: "1.5x pot",
-    2.0: "2x pot",
+    0.25: "a quarter-pot",
+    1 / 3: "a third-pot",
+    0.5: "a half-pot",
+    2 / 3: "a two-thirds-pot",
+    0.75: "a three-quarter-pot",
+    1.0: "a pot-sized",
+    1.5: "a 1.5x pot",
+    2.0: "a 2x pot",
 }
 
 
@@ -267,6 +267,13 @@ class CallOrFoldDrill(Drill):
                 break
         answer = "Call" if mine > need else "Fold"
         ev = odds.call_ev(pot, bet, mine)
+        wins, splits, unseen = result.count, len(result.tying), result.unseen
+        working = (
+            f"You win with {wins} of {unseen} river cards: equity {wins}/{unseen} = {pct(mine)}%."
+            if not splits
+            else f"You win with {wins} river cards and split with {splits} of {unseen}: "
+            f"equity ({wins} + {splits}/2)/{unseen} = {pct(mine)}%."
+        )
         return Question(
             drill=self.key,
             concept=self.concept,
@@ -283,7 +290,7 @@ class CallOrFoldDrill(Drill):
                 "bet": bet,
             },
             explanation=(
-                f"You have {result.count} outs: equity {pct(mine)}%.",
+                working,
                 f"You need {pct(need)}% to call.",
                 f"Calling is worth {ev:+.1f} chips versus folding, so {answer.lower()}.",
             ),
@@ -305,9 +312,12 @@ def _pair(rng: random.Random, rank: int, avoid: list[Card]) -> list[Card]:
     return [make_card(rank, s1), make_card(rank, s2)]
 
 
-def _unpaired(rng: random.Random, high: int, low: int, avoid: list[Card]) -> list[Card]:
+def _unpaired(
+    rng: random.Random, high: int, low: int, avoid: list[Card], suited: bool | None = None
+) -> list[Card]:
+    is_suited = rng.random() < 0.3 if suited is None else suited
     while True:
-        cards = _cards_of(rng, [high, low], rng.random() < 0.3)
+        cards = _cards_of(rng, [high, low], is_suited)
         if not set(cards) & set(avoid):
             return cards
 
@@ -316,10 +326,12 @@ MatchupBuilder = Callable[[random.Random], tuple[list[Card], list[Card]]]
 
 
 def _pair_vs_overs(rng: random.Random) -> tuple[list[Card], list[Card]]:
+    # Offsuit overcards keep this a true coin flip; suited connectors can make the pair an
+    # underdog, which would contradict the anchor.
     pair = rng.randrange(0, 11)
     high, low = sorted(rng.sample(range(pair + 1, 13), 2), reverse=True)
     hero = _pair(rng, pair, [])
-    return hero, _unpaired(rng, high, low, hero)
+    return hero, _unpaired(rng, high, low, hero, suited=False)
 
 
 def _overpair(rng: random.Random) -> tuple[list[Card], list[Card]]:
@@ -329,10 +341,14 @@ def _overpair(rng: random.Random) -> tuple[list[Card], list[Card]]:
 
 
 def _domination(rng: random.Random) -> tuple[list[Card], list[Card]]:
-    top = rng.randrange(4, 13)
-    k1, k2 = sorted(rng.sample(range(top), 2), reverse=True)
-    hero = _unpaired(rng, top, k1, [])
-    return hero, _unpaired(rng, top, k2, hero)
+    # A big top card and a clearly better kicker (AK vs AT, KQ vs K7) is real domination; low,
+    # adjacent kickers with straight potential are much closer to a flip.
+    top = rng.randrange(8, 13)
+    k1 = rng.randrange(6, top)
+    k2 = rng.randrange(0, k1 - 1)
+    hero_suited = rng.random() < 0.3
+    hero = _unpaired(rng, top, k1, [], suited=hero_suited)
+    return hero, _unpaired(rng, top, k2, hero, suited=hero_suited and rng.random() < 0.5)
 
 
 def _overs_vs_unders(rng: random.Random) -> tuple[list[Card], list[Card]]:
@@ -351,8 +367,8 @@ def _pair_vs_one_over(rng: random.Random) -> tuple[list[Card], list[Card]]:
 MATCHUPS: dict[str, tuple[MatchupBuilder, str]] = {
     "pair vs two overcards": (_pair_vs_overs, "about 55/45, the classic coin flip"),
     "overpair vs underpair": (_overpair, "about 80/20"),
-    "dominated hand": (_domination, "about 70-75 / 25-30"),
-    "two overcards vs two undercards": (_overs_vs_unders, "about 60-65 / 35-40"),
+    "dominated hand": (_domination, "about 70/30"),
+    "two overcards vs two undercards": (_overs_vs_unders, "about 60-70 / 30-40"),
     "pair vs one overcard": (_pair_vs_one_over, "about 70/30"),
 }
 
@@ -407,10 +423,17 @@ class FlopEquityDrill(Drill):
         mine = result[0]
         hint = outs_against(hero, villain, board)
         lines = [f"Exact equity over all 990 turn and river cards: {pct(mine.equity)}%."]
-        if hint.status < 0:
+        if mine.tie >= 0.15:
+            lines.append(f"Split pots matter here: {pct(mine.tie)}% of runouts chop.")
+        elif hint.status < 0 and abs(hint.count * 4 / 100 - mine.equity) <= 0.08:
             lines.append(
                 f"You have {hint.count} outs on the turn; outs x 4 = {hint.count * 4}% "
-                "is the quick estimate."
+                "is a good quick estimate."
+            )
+        elif hint.status < 0:
+            lines.append(
+                f"Outs x 4 ({hint.count} outs, {hint.count * 4}%) is off here: runner-runner "
+                "draws and cards that help both hands change the picture."
             )
         return Question(
             drill=self.key,
@@ -501,7 +524,7 @@ class DefenseDrill(Drill):
         return Question(
             drill=self.key,
             concept=self.concept,
-            prompt=f"Bet of {BET_SIZE_LABELS[size]} pot. {prompt}",
+            prompt=f"Villain makes {BET_SIZE_LABELS[size]} bet. {prompt}",
             kind=AnswerKind.NUMBER,
             answer=pct(value),
             unit="%",
@@ -581,7 +604,10 @@ def _open_ended_or_better(hole: list[Card], flop: list[Card]) -> bool:
 
 
 FLOP_EVENTS: dict[str, tuple[str, FlopEvent]] = {
-    "set": ("With a pocket pair, chance to flop a set or better?", _set_or_better),
+    "set": (
+        "With a pocket pair, chance to flop at least one card of your rank (a set or better)?",
+        _set_or_better,
+    ),
     "pair": (
         "With two unpaired cards, chance to pair at least one of them?",
         _pair_or_better_with_hole,
@@ -592,7 +618,7 @@ FLOP_EVENTS: dict[str, tuple[str, FlopEvent]] = {
     ),
     "overcard": ("With this pocket pair, chance at least one overcard flops?", _overcard),
     "straight-draw": (
-        "With these connectors, chance to flop an open-ended draw or a straight?",
+        "With these connectors, chance to flop an open-ended draw (or double gutshot) or better?",
         _open_ended_or_better,
     ),
 }

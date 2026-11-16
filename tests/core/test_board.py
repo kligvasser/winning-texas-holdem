@@ -97,3 +97,27 @@ def test_outs_validation():
         outs_against(parse_cards("AhQh"), parse_cards("KsKd"), parse_cards("Kh7h"))
     with pytest.raises(ValueError):
         outs_against(parse_cards("AhQh"), parse_cards("AhKd"), parse_cards("Kc7h2c"))
+
+
+def test_straight_draw_that_beats_the_board_straight_draw():
+    # Board 5-6-7-8: a 4 or 9 makes a straight for everyone, but only the 9 lets T play higher.
+    result = draws(parse_cards("Td2c"), parse_cards("5s6h7d8c"))
+    assert result.straight_outs_ranks == 1
+    assert result.gutshot
+
+
+def test_board_pairing_cards_are_not_tainted():
+    result = outs_against(parse_cards("8c9c"), parse_cards("AsAd"), parse_cards("6h7h2s"))
+    two = parse_cards("2d")[0]
+    eight = parse_cards("8d")[0]
+    assert eight in result.tainted  # pairs hero's own card, still loses to aces
+    assert two not in result.tainted  # only pairs the board
+
+
+def test_flush_and_straight_improvements_count_as_tainted():
+    # Hero flush draw vs a set: the flush card that pairs the board fills villain up.
+    result = outs_against(parse_cards("AhQh"), parse_cards("KsKd"), parse_cards("Kh7h2c"))
+    assert parse_cards("2h")[0] in result.tainted
+    # Open-ender vs a set: the straight card that pairs the board gives villain a full house.
+    result = outs_against(parse_cards("9c8d"), parse_cards("7s7d"), parse_cards("Tc7h6h"))
+    assert parse_cards("Ts")[0] not in result.tainted  # pairing the board is not hero's card

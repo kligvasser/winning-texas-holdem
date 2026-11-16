@@ -3,6 +3,7 @@ import random
 import pytest
 
 from holdem.core.cards import parse_card, parse_cards
+from holdem.core.equity import calculate_equity
 from holdem.core.evaluator import Category
 from holdem.drills import math_lab
 from holdem.drills.base import AnswerKind, Question, grade
@@ -10,6 +11,7 @@ from holdem.drills.math_lab import (
     ALL_DRILLS,
     DRILLS,
     FLOP_EVENTS,
+    MATCHUPS,
     PreflopEquityDrill,
     flop_event_probability,
     nut_hand,
@@ -111,6 +113,30 @@ def test_open_ended_flop_odds_are_plausible():
     assert 0.09 < prob < 0.13
 
 
+@pytest.mark.parametrize(
+    ("response", "value"),
+    [
+        (25, 25.0),
+        ("25", 25.0),
+        ("25%", 25.0),
+        (" 25 % ", 25.0),
+        ("0,5", 0.5),
+        ("1,326", 1326.0),
+        ("12,5", 12.5),
+    ],
+)
+def test_grade_accepts_friendly_numbers(response, value):
+    question = Question("d", "c", "p", AnswerKind.NUMBER, value, tolerance=0)
+    assert grade(question, response).correct
+
+
+@pytest.mark.parametrize("response", ["nan", "inf", "-inf", "", "1/3"])
+def test_grade_rejects_non_finite_or_unparseable(response):
+    question = Question("d", "c", "p", AnswerKind.NUMBER, 1.0)
+    with pytest.raises(ValueError):
+        grade(question, response)
+
+
 def test_grade_rejects_bad_responses():
     number = Question("d", "c", "p", AnswerKind.NUMBER, 10.0, tolerance=1)
     with pytest.raises(ValueError, match="number"):
@@ -129,3 +155,31 @@ def test_many_seeds_hit_every_branch(drill):
     """Wider seed sweep so random branches (blockers, tainted outs, splits) are exercised."""
     for seed in range(100, 130):
         drill.make_question(random.Random(seed))
+
+
+ANCHOR_BANDS = {
+    "pair vs two overcards": (0.46, 0.62),
+    "overpair vs underpair": (0.77, 0.86),
+    "dominated hand": (0.60, 0.79),
+    "two overcards vs two undercards": (0.55, 0.73),
+    "pair vs one overcard": (0.62, 0.76),
+}
+
+
+@pytest.mark.parametrize("name", ANCHOR_BANDS)
+def test_matchup_generators_stay_near_their_anchor(name):
+    """The explanation quotes an anchor; generated hands must not contradict it."""
+    builder, _ = MATCHUPS[name]
+    low, high = ANCHOR_BANDS[name]
+    rng = random.Random(5)
+    for _ in range(40):
+        hero, villain = builder(rng)
+        equity = calculate_equity(
+            [(hero[0], hero[1]), (villain[0], villain[1])], samples=2500, seed=1, exact_limit=0
+        )[0].equity
+        assert low <= equity <= high, (name, hero, villain, equity)
+
+
+def test_numeric_grades_report_their_tolerance():
+    question = Question("d", "c", "p", AnswerKind.NUMBER, 25.0, tolerance=1.5)
+    assert grade(question, 26).public()["tolerance"] == 1.5

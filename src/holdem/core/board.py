@@ -67,6 +67,18 @@ def straight_completing_ranks(cards: Sequence[Card]) -> set[int]:
     return {next(iter(s - ranks)) for s in STRAIGHTS if len(s - ranks) == 1}
 
 
+def straight_height(ranks: set[int]) -> int:
+    """Index into ``STRAIGHTS`` of the highest straight within ``ranks`` (wheel = 0), or -1."""
+    return max((i for i, s in enumerate(STRAIGHTS) if s <= ranks), default=-1)
+
+
+def _hero_straight_with(hole: Sequence[Card], board: Sequence[Card], rank: int) -> bool:
+    """Would a card of ``rank`` give the hole cards a straight better than the board's own?"""
+    board_ranks = {rank_of(c) for c in board} | {rank}
+    hero_ranks = board_ranks | {rank_of(c) for c in hole}
+    return straight_height(hero_ranks) > straight_height(board_ranks)
+
+
 @dataclass(frozen=True)
 class Draws:
     flush_draw: bool
@@ -92,8 +104,9 @@ def draws(hole: Sequence[Card], board: Sequence[Card]) -> Draws:
     )
     straight_ranks = 0
     if made < Category.STRAIGHT:
-        board_ranks = straight_completing_ranks(board) if len(board) >= 4 else set()
-        straight_ranks = len(straight_completing_ranks(cards) - board_ranks)
+        straight_ranks = sum(
+            _hero_straight_with(hole, board, r) for r in straight_completing_ranks(cards)
+        )
     return Draws(flush_draw=flush_draw, straight_outs_ranks=straight_ranks)
 
 
@@ -102,12 +115,24 @@ class OutsResult:
     status: int  # 1 hero ahead now, 0 tied, -1 behind (on the current board)
     winning: tuple[Card, ...]  # next cards that leave hero winning outright
     tying: tuple[Card, ...]  # next cards that leave a split pot
-    tainted: tuple[Card, ...]  # next cards that improve hero's category but still lose
+    tainted: tuple[Card, ...]  # next cards that improve hero's own hand but still lose
     unseen: int
 
     @property
     def count(self) -> int:
         return len(self.winning)
+
+
+def _uses_hole_cards(hero: Sequence[Card], board: Sequence[Card], card: Card) -> bool:
+    """Does ``card`` improve hero through hero's own cards (not just by pairing the board)?"""
+    if rank_of(card) in {rank_of(c) for c in hero}:
+        return True
+    made = category([*hero, *board, card])
+    if made in (Category.FLUSH, Category.STRAIGHT_FLUSH) and suit_of(card) in {
+        suit_of(c) for c in hero
+    }:
+        return True
+    return made >= Category.STRAIGHT and _hero_straight_with(hero, board, rank_of(card))
 
 
 def outs_against(
@@ -130,7 +155,7 @@ def outs_against(
             winning.append(card)
         elif result == 0:
             tying.append(card)
-        elif category([*hero, *next_board]) > hero_category:
+        elif category([*hero, *next_board]) > hero_category and _uses_hole_cards(hero, board, card):
             tainted.append(card)
     return OutsResult(
         status=current,

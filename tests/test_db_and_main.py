@@ -1,7 +1,9 @@
+from datetime import UTC, datetime
+
 from sqlalchemy.orm import Session
 
 from holdem import __main__ as entry
-from holdem.db import database_url, drill_stats, make_engine, record_attempt
+from holdem.db import database_url, drill_stats, make_engine, record_attempt, to_naive_utc
 
 
 def test_database_url_uses_data_dir(tmp_path, monkeypatch):
@@ -41,3 +43,9 @@ def test_main_runs_uvicorn(monkeypatch):
     assert calls["app"] == "holdem.api.app:create_app"
     assert calls["port"] == 9000
     assert calls["factory"] is True
+
+
+def test_naive_timestamps_are_treated_as_utc():
+    naive = datetime(2026, 1, 1, 12)
+    assert to_naive_utc(naive) == naive
+    assert to_naive_utc(naive.replace(tzinfo=UTC)) == naive

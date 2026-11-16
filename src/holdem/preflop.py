@@ -171,7 +171,7 @@ SPOTS: tuple[Spot, ...] = (
                 "K7o+, Q8o+, J8o+, T8o+, 98o, 87o",
             ),
         ),
-        note="You close the action and need only about 28% equity to call 1.5bb into 4bb, so "
+        note="You close the action and need only about 27% equity to call 1.5bb into 4bb, so "
         "defend very wide. 3-bet strong hands for value and some suited hands with "
         "blockers or playability as bluffs.",
     ),

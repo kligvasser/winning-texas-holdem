@@ -16,6 +16,13 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 DEFAULT_DATA_DIR = Path("data")
 
 
+def to_naive_utc(moment: datetime) -> datetime:
+    """Storage form for timestamps. A naive input is taken to be UTC already."""
+    if moment.tzinfo is None:
+        return moment
+    return moment.astimezone(UTC).replace(tzinfo=None)
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -79,7 +86,7 @@ def record_attempt(
     created_at: datetime | None = None,
 ) -> Attempt:
     attempt = Attempt(
-        created_at=(created_at or datetime.now(UTC)).astimezone(UTC).replace(tzinfo=None),
+        created_at=to_naive_utc(created_at or datetime.now(UTC)),
         drill=drill,
         concept=concept,
         question=json.dumps(question),

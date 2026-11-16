@@ -7,7 +7,9 @@ to the browser.
 
 from __future__ import annotations
 
+import math
 import random
+import re
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
@@ -61,9 +63,11 @@ class Grade:
     explanation: tuple[str, ...]
     highlight: tuple[str, ...]
     reveal: dict[str, Any] = field(default_factory=dict)
+    tolerance: float = 0.0
 
     def public(self) -> dict[str, Any]:
         return {
+            "tolerance": self.tolerance,
             "correct": self.correct,
             "expected": self.expected,
             "response": self.response,
@@ -74,13 +78,29 @@ class Grade:
         }
 
 
+THOUSANDS = re.compile(r"-?\d{1,3}(,\d{3})+(\.\d+)?")
+
+
+def parse_number(response: object) -> float:
+    """Accept 25, "25", "25%", " 25 % ", a decimal comma ("0,5") and thousands ("1,326").
+
+    Rejects NaN and infinity.
+    """
+    text = str(response).strip().removesuffix("%").strip()
+    text = text.replace(",", "") if THOUSANDS.fullmatch(text) else text.replace(",", ".")
+    try:
+        value = float(text)
+    except ValueError as exc:
+        raise ValueError(f"expected a number, got {response!r}") from exc
+    if not math.isfinite(value):
+        raise ValueError(f"expected a finite number, got {response!r}")
+    return value
+
+
 def grade(question: Question, response: float | str) -> Grade:
     """Grade a response against the question's stored answer."""
     if question.kind is AnswerKind.NUMBER:
-        try:
-            value = float(response)
-        except (TypeError, ValueError) as exc:
-            raise ValueError(f"expected a number, got {response!r}") from exc
+        value = parse_number(response)
         expected = float(question.answer)
         error = value - expected
         correct = abs(error) <= question.tolerance + 1e-9
@@ -92,6 +112,7 @@ def grade(question: Question, response: float | str) -> Grade:
             question.explanation,
             question.highlight,
             question.reveal,
+            question.tolerance,
         )
     if response not in question.choices:
         raise ValueError(f"{response!r} is not one of the choices")

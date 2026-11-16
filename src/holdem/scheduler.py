@@ -18,7 +18,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from holdem.curriculum import CONCEPTS, CONCEPTS_BY_ID
-from holdem.db import Attempt, ReviewCard
+from holdem.db import Attempt, ReviewCard, to_naive_utc
 from holdem.drills.registry import ALL_DRILLS, DRILLS
 
 BLOCK_SIZE = 3
@@ -36,7 +36,7 @@ NEW_CARD_DUE = datetime(2000, 1, 1, tzinfo=UTC)
 
 
 def _naive(moment: datetime) -> datetime:
-    return moment.astimezone(UTC).replace(tzinfo=None)
+    return to_naive_utc(moment)
 
 
 def rating_for(results: Sequence[tuple[bool, int | None]]) -> Rating:
