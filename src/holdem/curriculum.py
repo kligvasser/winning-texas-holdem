@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from holdem.stories import STORY_DRILLS
+
 OCW_2016 = "https://ocw.mit.edu/courses/15-s50-how-to-win-at-texas-holdem-poker-january-iap-2016/"
 OCW_2015 = "https://ocw.mit.edu/courses/15-s50-poker-theory-and-analytics-january-iap-2015/"
 VIDEOS_2016 = OCW_2016 + "video_galleries/lecture-videos/"
@@ -344,7 +346,7 @@ CONCEPTS: tuple[Concept, ...] = (
         ),
         prerequisites=("facing-a-raise", "fold-equity", "implied-odds"),
         lectures=(L16_2, L16_7),
-        drills=("hand-story",),
+        drills=tuple(d.key for d in STORY_DRILLS),
     ),
     Concept(
         id="bluff-catching",

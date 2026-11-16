@@ -1,0 +1,47 @@
+key = "story-set-mining"
+title = "Hand story: set-mining"
+description = "Defend the big blind with a small pair, flop a set, and get paid."
+pot = 5.5
+
+[hero]
+classes = "22-99"
+
+[villain]
+name = "BTN"
+spot = "btn-open"
+action = "Raise"
+
+[[steps]]
+street = "preflop"
+decision = "chart"
+spot = "bb-vs-btn"
+expect = "Call"
+prompt = "The button opens to 2.5bb and the small blind folds. You are in the big blind with {hand}. 3-bet, call or fold?"
+lesson = "A pocket pair flops a set about 1 time in 8.5. Calling to set-mine works when stacks are deep enough to win a big pot when you hit; 100bb is plenty."
+
+[[steps]]
+street = "flop"
+hero = ["set"]
+board = ["unpaired"]
+decision = "call"
+size = [0.33, 0.5]
+prompt = "Flop {flop}: you flop a set. You check, BTN bets {bet} into {pot}. Call or fold?"
+lesson = "With a set you are far ahead; calling keeps the button's bluffs and weaker hands in the pot. Raising is also fine."
+
+[[steps]]
+street = "turn"
+board = ["blank"]
+decision = "value"
+size = 0.66
+calls = ["pair_plus", "draw"]
+prompt = "Turn {turn}. Pot {pot}. If you lead {bet}, BTN calls with any pair or any draw. Bet for value, or check?"
+lesson = "Value betting is about the hands that call, not the hands that fold."
+
+[[steps]]
+street = "river"
+board = ["blank"]
+decision = "value"
+size = 1.0
+calls = ["top_pair_plus"]
+prompt = "River {river}. Pot {pot}. A pot-sized bet of {bet} gets called by top pair or better. Bet or check?"
+lesson = "Sets beat almost every hand that calls a big river bet. Make them pay."

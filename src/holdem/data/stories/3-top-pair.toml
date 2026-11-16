@@ -1,0 +1,48 @@
+key = "story-top-pair"
+title = "Hand story: top pair under pressure"
+description = "Open the cutoff, flop top pair, then face a turn lead and a river bet."
+pot = 5.5
+
+[hero]
+classes = "AQs, AJs, ATs, KQs, KJs, AQo, AJo, KQo"
+
+[villain]
+name = "BB"
+spot = "bb-vs-co"
+action = "Call"
+
+[[steps]]
+street = "preflop"
+decision = "chart"
+spot = "co-open"
+expect = "Raise"
+prompt = "Folded to you in the cutoff with {hand}. Open or fold?"
+lesson = "You open to 2.5bb and the big blind calls."
+
+[[steps]]
+street = "flop"
+hero = ["top_pair"]
+board = ["unpaired"]
+decision = "value"
+size = 0.33
+calls = ["pair_plus", "draw"]
+prompt = "Flop {flop}: you have top pair. Pot {pot}. If you c-bet {bet}, BB continues with any pair or any draw. Bet or check?"
+lesson = "Top pair is usually well ahead of the hands that call a small bet: pairs below it and draws."
+
+[[steps]]
+street = "turn"
+board = ["blank"]
+decision = "catch"
+size = [0.66, 0.75, 1.0]
+bets = ["two_pair_plus", "flush_draw", "oesd"]
+prompt = "Turn {turn}: BB leads {bet} into {pot}, with two pair or better or a strong draw. Call or fold?"
+lesson = "Count how much of the betting range is value and how much is draws you beat right now."
+
+[[steps]]
+street = "river"
+board = ["blank"]
+decision = "catch"
+size = [0.75, 1.0]
+bets = ["two_pair_plus", "nothing"]
+prompt = "River {river}: BB bets {bet} into {pot}, with two pair or better for value and missed draws as bluffs. Call or fold?"
+lesson = "On the river your top pair is a bluff-catcher: it beats every bluff and loses to every value hand."

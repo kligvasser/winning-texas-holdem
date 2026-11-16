@@ -1,0 +1,40 @@
+key = "story-3bet-pot"
+title = "Hand story: overcard in a 3-bet pot"
+description = "3-bet a pair on the button, then an overcard flops and the cutoff keeps betting."
+pot = 17.5  # 3-bet to 8bb, the cutoff calls, 1.5bb dead blinds
+
+[hero]
+classes = "TT, JJ, QQ"
+
+[villain]
+name = "CO"
+spot = "co-open"
+action = "Raise"
+classes = "22+, A2s+, KTs+, QTs+, JTs, T9s, 98s, AJo+, KQo"  # the hands that call a 3-bet
+
+[[steps]]
+street = "preflop"
+decision = "chart"
+spot = "btn-vs-co"
+expect = "3-bet"
+prompt = "The cutoff opens to 2.5bb. You are on the button with {hand}. 3-bet, call or fold?"
+lesson = "You 3-bet to 8bb and the cutoff calls. In a 3-bet pot the stack-to-pot ratio is low, about 5."
+
+[[steps]]
+street = "flop"
+hero = ["underpair_to_top"]
+board = ["unpaired"]
+decision = "catch"
+size = [0.33, 0.5]
+bets = ["top_pair_plus", "flush_draw", "oesd"]
+prompt = "Flop {flop}: an overcard to your pair. CO leads {bet} into {pot} with top pair or better or a strong draw. Call or fold?"
+lesson = "Ranges that call 3-bets hit high cards often. Count how many of their bets you still beat."
+
+[[steps]]
+street = "turn"
+board = ["blank"]
+decision = "catch"
+size = [0.5, 0.66]
+bets = ["top_pair_plus", "flush_draw", "oesd"]
+prompt = "Suppose you call. Turn {turn}: CO bets again, {bet} into {pot}, with the same kind of range. Call or fold?"
+lesson = "When the betting range is mostly hands that beat you, a pretty overpair still has to fold."

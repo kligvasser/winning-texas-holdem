@@ -10,7 +10,6 @@ from holdem.drills.scenarios import (
     SCENARIO_DRILLS,
     BluffCatchDrill,
     BluffEvDrill,
-    HandStoryDrill,
     IcmDrill,
     ImpliedOddsDrill,
     PushFoldDrill,
@@ -51,27 +50,6 @@ def test_questions_are_well_formed(drill, seed):
         else:
             assert grade(question, float(question.answer)).correct
             assert not grade(question, float(question.answer) + question.tolerance + 1).correct
-
-
-def test_hand_story_is_three_linked_steps():
-    for seed in range(40):
-        chain = list(steps(HandStoryDrill().make_question(random.Random(seed))))
-        assert len(chain) == 3
-        preflop, turn, river = chain
-        assert preflop.answer == "Raise"
-        assert len(turn.payload["board"]) == 4
-        assert len(river.payload["board"]) == 5
-        assert turn.payload["board"] == river.payload["board"][:4]
-        assert preflop.payload["hole"] == turn.payload["hole"] == river.payload["hole"]
-        assert grade(turn, turn.answer).follow_up is river
-        assert river.highlight  # villain's actual hand is revealed
-
-
-def test_hand_story_skips_ranges_too_narrow_to_teach():
-    hero = combo("Ah9h")
-    board = parse_cards("QhJh2s5d7c")
-    story = HandStoryDrill()._story(random.Random(0), hero, board[:3], board[3], board[4], [])
-    assert story is None
 
 
 def test_pair_class():

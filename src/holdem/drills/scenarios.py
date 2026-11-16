@@ -14,7 +14,7 @@ from importlib import resources
 from typing import Any
 
 from holdem.core import odds
-from holdem.core.cards import Card, deal, pretty_cards, rank_of, remaining_deck, suit_of
+from holdem.core.cards import Card, deal, rank_of
 from holdem.core.equity import calculate_equity
 from holdem.core.evaluator import Category, category, compare
 from holdem.core.icm import icm_equities, risk_premium_call
@@ -25,7 +25,6 @@ from holdem.core.ranges import (
     Range,
     class_combo_count,
     class_of_combo,
-    combos_of_class,
     grid_class,
 )
 from holdem.drills.base import AnswerKind, Drill, Question, card_list, pct
@@ -425,185 +424,11 @@ class IcmDrill(Drill):
         )
 
 
-class HandStoryDrill(Drill):
-    """Play one hand from the button: open, face a turn lead with a flush draw, then the river."""
-
-    key = "hand-story"
-    title = "Hand story: the flush draw"
-    concept = "street-by-street"
-    tier = 4
-    description = "One hand, three decisions: open, call a turn bet with a draw, bluff the river."
-
-    def make_question(self, rng: random.Random) -> Question:
-        opening = [
-            c
-            for c in chart_range("btn-open", "Raise")
-            if len(c) == 3 and c.endswith("s") and c[0] != c[1]
-        ]
-        villain_calls = chart_range("bb-vs-btn", "Call")
-        while True:
-            hero = rng.choice(combos_of_class(rng.choice(opening)))
-            suit = suit_of(hero[0])
-            board = self._board(rng, hero, suit)
-            if board is None:
-                continue
-            flop, turn, river = board[:3], board[3], board[4]
-            turn_board = [*flop, turn]
-            leads = [
-                c
-                for c, _ in villain_calls.combos([*hero, *turn_board])
-                if pair_class(c, turn_board) in ("top pair+", "two pair+") and river not in c
-            ]
-            story = self._story(rng, hero, flop, turn, river, leads)
-            if story is not None:
-                return story
-
-    @staticmethod
-    def _board(rng: random.Random, hero: Combo, suit: int) -> list[Card] | None:
-        """Flop with two of hero's suit and no pair for hero; blank turn and river."""
-        hero_ranks = {rank_of(c) for c in hero}
-        deck = [c for c in remaining_deck(hero)]
-        suited = [c for c in deck if suit_of(c) == suit and rank_of(c) not in hero_ranks]
-        offsuit = [c for c in deck if suit_of(c) != suit and rank_of(c) not in hero_ranks]
-        flop = [*rng.sample(suited, 2), rng.choice(offsuit)]
-        used = {rank_of(c) for c in flop}
-        blanks = [c for c in offsuit if c not in flop and rank_of(c) not in used]
-        if len(used) < 3 or len(blanks) < 2:
-            return None
-        turn, river = rng.sample(blanks, 2)
-        if (
-            rank_of(turn) == rank_of(river)
-            or category([*hero, *flop, turn, river]) > Category.HIGH_CARD
-        ):
-            return None
-        return [*flop, turn, river]
-
-    def _story(
-        self,
-        rng: random.Random,
-        hero: Combo,
-        flop: list[Card],
-        turn: Card,
-        river: Card,
-        leads: list[Combo],
-    ) -> Question | None:
-        if len(leads) < 6:  # too few leading hands to make a meaningful range
-            return None
-        hand = class_of_combo(*hero)
-        pot_flop = 5.5  # 2.5bb open, BB calls, 0.5bb dead small blind
-        cbet = 2.0
-        pot_turn = pot_flop + 2 * cbet
-        lead_size = rng.choice((0.33, 0.5, 0.66, 0.75))
-        lead = round(pot_turn * lead_size * 2) / 2
-        turn_board = [*flop, turn]
-        equity = calculate_equity([hero, [(c, 1.0) for c in leads]], turn_board)[0].equity
-        need = odds.required_equity(pot_turn, lead)
-        if abs(equity - need) < 0.02:
-            return None
-        pot_river = pot_turn + 2 * lead
-        river_board = [*turn_board, river]
-        river_range = [c for c in leads if river not in c]
-        one_pair = [c for c in river_range if category([*c, *river_board]) == Category.ONE_PAIR]
-        fold = len(one_pair) / len(river_range)
-        bluff = pot_river * rng.choice((0.66, 1.0))
-        bluff = round(bluff * 2) / 2
-        alpha = odds.alpha(pot_river, bluff)
-        if abs(fold - alpha) < 0.03:
-            return None
-        villain_hand = rng.choice(river_range)
-
-        bluff_answer = "Bet" if fold > alpha else "Check"
-        ev = fold * pot_river - (1 - fold) * bluff
-        river_q = Question(
-            drill=self.key,
-            concept=self.concept,
-            prompt=f"River {pretty_cards([river])} misses your draw. BB checks. Pot {pot_river:g}. "
-            f"BB folds one-pair hands to a bet and calls with two pair or better. Bet {bluff:g} "
-            "as a bluff, or check and give up?",
-            kind=AnswerKind.CHOICE,
-            answer=bluff_answer,
-            choices=("Bet", "Check"),
-            payload={
-                "hole": card_list(hero),
-                "board": card_list(river_board),
-                "pot": pot_river,
-                "bet": bluff,
-                "facts": facts(street="River · step 3 of 3", villain="BB"),
-            },
-            explanation=(
-                f"BB's range here: {len(river_range)} combos, {len(one_pair)} of them one pair "
-                f"that fold ({pct(fold)}%).",
-                f"A {bluff:g} bluff needs {pct(alpha)}% folds; EV = {fold:.2f} x {pot_river:g} - "
-                f"{1 - fold:.2f} x {bluff:g} = {ev:+.1f}, so {bluff_answer.lower()}.",
-                f"BB actually had {pretty_cards(villain_hand)}"
-                + (
-                    ": one pair, so a bluff takes it down."
-                    if villain_hand in one_pair
-                    else ": two pair or better, so this time the bluff gets called."
-                ),
-            ),
-            highlight=tuple(card_list(villain_hand)),
-        )
-        turn_answer = "Call" if equity > need else "Fold"
-        extra = max(0.0, lead / max(equity, 1e-9) - pot_turn - 2 * lead)
-        turn_q = Question(
-            drill=self.key,
-            concept=self.concept,
-            prompt=f"Flop {pretty_cards(flop)}: you c-bet {cbet:g}, BB calls. Turn "
-            f"{pretty_cards([turn])}: BB leads {lead:g} into {pot_turn:g}, and only leads with "
-            "top pair or better. On pot odds alone, call or fold?",
-            kind=AnswerKind.CHOICE,
-            answer=turn_answer,
-            choices=("Call", "Fold"),
-            payload={
-                "hole": card_list(hero),
-                "board": card_list(turn_board),
-                "pot": pot_turn,
-                "bet": lead,
-                "facts": facts(street="Turn · step 2 of 3", villain="BB, top pair or better"),
-            },
-            explanation=(
-                f"Against BB's {len(leads)} leading combos your flush draw has {pct(equity)}% "
-                f"equity with one card to come.",
-                f"Calling {lead:g} to win {pot_turn + lead:g} needs {pct(need)}%, so "
-                f"{turn_answer.lower()} on pot odds.",
-                (
-                    f"Implied odds: you would need about {extra:.1f} more on the river "
-                    "when you hit."
-                    if turn_answer == "Fold"
-                    else "The price is good enough without counting on implied odds."
-                ),
-                "Either way, let's see the river.",
-            ),
-            follow_up=river_q,
-        )
-        return Question(
-            drill=self.key,
-            concept=self.concept,
-            prompt=f"6-max, 100bb. Folded to you on the button with {hand}. Open or fold?",
-            kind=AnswerKind.CHOICE,
-            answer="Raise",
-            choices=("Raise", "Fold"),
-            payload={
-                "hole": card_list(hero),
-                "position": "BTN",
-                "facts": facts(street="Preflop · step 1 of 3"),
-            },
-            explanation=(
-                f"{hand} is in the button's opening range: suited hands make flushes and play "
-                "well in position.",
-                "You open to 2.5bb and the big blind calls.",
-            ),
-            follow_up=turn_q,
-        )
-
-
 SCENARIO_DRILLS: tuple[Drill, ...] = (
     RangeHitsDrill(),
     RangeEquityDrill(),
     ImpliedOddsDrill(),
     BluffEvDrill(),
-    HandStoryDrill(),
     BluffCatchDrill(),
     PushFoldDrill(),
     IcmDrill(),

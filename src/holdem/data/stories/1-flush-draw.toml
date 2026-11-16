@@ -1,0 +1,43 @@
+# Keep the key "hand-story": spaced-repetition history is stored under it.
+key = "hand-story"
+title = "Hand story: the flush draw"
+description = "Open the button, face a turn lead with a flush draw, then decide on a missed river."
+pot = 5.5  # 2.5bb open, the big blind calls, 0.5bb dead small blind
+
+[hero]
+classes = "A2s+, K2s+, Q5s+, J7s+, T7s+, 96s+, 85s+, 74s+, 64s+, 53s+, 43s"
+
+[villain]
+name = "BB"
+spot = "bb-vs-btn"
+action = "Call"
+
+[[steps]]
+street = "preflop"
+decision = "chart"
+spot = "btn-open"
+expect = "Raise"
+prompt = "6-max, 100bb. Folded to you on the button with {hand}. Open or fold?"
+lesson = "Suited hands make flushes and play well in position. You open to 2.5bb and the big blind calls."
+
+[[steps]]
+street = "turn"
+hero = ["flush_draw", "not_pair_plus"]
+board = ["unpaired", "blank"]
+setup = "Flop {flop}: you c-bet {setup_bet}, BB calls."
+setup_bet = 0.33
+decision = "catch"
+size = [0.33, 0.5, 0.66, 0.75]
+bets = ["top_pair_plus"]
+prompt = "Turn {turn}: BB leads {bet} into {pot}, and only leads with top pair or better. On pot odds alone, call or fold?"
+lesson = "A flush draw with one card to come hits about 1 time in 5. When the price is worse than that, only implied odds can justify a call."
+
+[[steps]]
+street = "river"
+hero = ["not_pair_plus"]
+board = ["blank"]
+decision = "bluff"
+size = [0.66, 1.0]
+folds = ["one_pair"]
+prompt = "Suppose you call. River {river} misses your draw. BB checks. Pot {pot}. BB folds one-pair hands to a bet and calls with two pair or better. Bet {bet} as a bluff, or check?"
+lesson = "A missed draw cannot win at showdown: betting is its only way to win the pot."
