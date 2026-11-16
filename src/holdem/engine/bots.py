@@ -166,29 +166,43 @@ class Bot:
     style: Style
     rng: random.Random
 
-    def decide(self, hand: HeadsUpHand) -> tuple[str, int | None]:
-        """Choose an action for the player to act (assumed to be this bot)."""
-        legal = hand.legal()
+    def options(self, hand: HeadsUpHand) -> list[tuple[str, int | None, float]]:
+        """Every action this bot could take now, with its size and probability.
+
+        ``decide`` samples from exactly these numbers, so they also tell us how likely the bot was
+        to take an observed line with any given hand (used to read its range).
+        """
         if hand.street == 0:
-            return self._preflop(hand)
+            kind, to = self._preflop(hand)
+            return [(kind, to, 1.0)]
+        legal = hand.legal()
         me = hand.current
         group = hand_class(hand.hole[me], hand.board)
-        roll = self.rng.random()
         pot = hand.total_pot
         if legal.can_check:
-            if legal.can_raise and roll < self.style.bet[group]:
-                return "bet", self._size(legal.min_raise_to, legal.max_raise_to, pot)
-            return "check", None
+            bet = self.style.bet[group] if legal.can_raise else 0.0
+            size = self._size(legal.min_raise_to, legal.max_raise_to, pot)
+            return [("bet", size, bet), ("check", None, 1 - bet)]
         stay = self.style.stay[group]
         before_bet = pot - legal.to_call  # the pot the bet was made into
         if legal.to_call >= before_bet * 0.6 and group in ("medium", "draw", "air"):
             stay *= 0.7  # bets of 60% pot or more push weaker hands out
-        if legal.can_raise and roll < self.style.raise_[group]:
-            to = max(legal.min_raise_to, hand.bets[1 - me] * 3)
-            return "raise", min(to, legal.max_raise_to)
-        if roll < stay or legal.to_call <= BIG_BLIND // 2:
-            return "call", None
-        return "fold", None
+        raise_ = self.style.raise_[group] if legal.can_raise else 0.0
+        to = min(max(legal.min_raise_to, hand.bets[1 - me] * 3), legal.max_raise_to)
+        stays = 1.0 if legal.to_call <= BIG_BLIND // 2 else max(stay, raise_)
+        return [("raise", to, raise_), ("call", None, stays - raise_), ("fold", None, 1 - stays)]
+
+    def decide(self, hand: HeadsUpHand) -> tuple[str, int | None]:
+        """Choose an action for the player to act (assumed to be this bot)."""
+        choices = [(k, to, p) for k, to, p in self.options(hand) if p > 0]
+        if len(choices) == 1:
+            return choices[0][0], choices[0][1]
+        roll = self.rng.random()
+        for kind, to, p in choices:
+            if roll < p:
+                return kind, to
+            roll -= p
+        return choices[-1][0], choices[-1][1]  # floating-point leftovers
 
     def _size(self, low: int, high: int, pot: int) -> int:
         return min(high, max(low, round(pot * self.style.size)))

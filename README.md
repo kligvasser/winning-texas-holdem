@@ -58,7 +58,7 @@ seeded Monte Carlo otherwise), and every graded answer comes with the working, n
 
 ### Training inventory
 
-24 drills plus paint-the-range across all seven tiers. Every answer is computed by the engine from the assumptions stated in the question.
+28 drills plus paint-the-range across all seven tiers. Every answer is computed by the engine from the assumptions stated in the question.
 
 | Tier | Drills |
 |---|---|
@@ -66,7 +66,7 @@ seeded Monte Carlo otherwise), and every graded answer comes with the working, n
 | 1 · Core maths | Count your outs · Outs to percent · Pot odds · Call or fold · Preflop all-in equity · Flop equity · Starting-hand odds · Flop odds |
 | 2 · Preflop | Open or fold · Facing a raise · Paint the range |
 | 3 · Ranges | Equity vs a range · How often does the range hit? · Implied odds · Count combos (blockers) · Stack-to-pot ratio |
-| 4 · Postflop | Bluff EV (pure and semi-bluffs) · **Hand stories**: the flush draw, set-mining, top pair under pressure, an overcard in a 3-bet pot |
+| 4 · Postflop | Read the bot's range (hand reading) · Bluff EV (pure and semi-bluffs) · **Hand stories**: the flush draw, set-mining, top pair under pressure, an overcard in a 3-bet pot |
 | 5 · Game theory | MDF, alpha and bluff ratios · Bluff-catching |
 | 6 · Tournaments | Shove or fold (push/fold EV) · ICM: what are your chips worth? |
 
@@ -93,6 +93,18 @@ blinds; the Review page lists your hands worst mistake first, with your VPIP, PF
     <td><b>The review.</b> Graded by equity against the bot's preflop range, so treat it as an estimate: later betting is not modelled.</td>
   </tr>
 </table>
+
+### Hand reading, graded against the truth
+
+Watch a hand between a styled bot and an autopilot holding your cards, and after every street
+narrow the bot's range on the 13×13 grid (it starts full; remove what its actions rule out, and
+your range carries to the next street). Because the bots' strategies are known exactly, the app
+knows the bot's **real** range: every hand weighted by how likely the bot was to play it exactly
+this way. Your score is how much your range overlaps it: painting too wide or too narrow both cost
+you. The feedback shows the real range as a heat map, the best score any range could reach, the
+likely hands you removed, the unlikely ones you kept, and finally the hand the bot actually held.
+
+<img src="docs/images/hand-reading.png" alt="Hand reading feedback: range match, best possible score, notes on removed and kept hands, and the bot's real range as a heat map" width="880">
 
 ### Speed rounds
 
@@ -407,7 +419,7 @@ npm run screenshots                # regenerate the images in this README
 - [x] **Speed rounds:** 60-second keyboard sprints on choice drills, with personal bests
 - [x] **Play and review (heads-up):** five bot styles, a live coach, every call and fold graded and costed, hand history with VPIP/PFR/bb/100
 - [ ] **6-max table:** more seats, side pots and position play against a mix of bot styles
-- [ ] **Hand reading:** narrow a bot's range street by street, scored against the bot's true range
+- [x] **Hand reading:** narrow a bot's range street by street, scored against the bot's true range
 - [ ] **Postflop-aware review:** narrow the bot's range by its postflop actions, and grade bets and raises
 - [ ] **Toy games:** the MIT problem-set betting game and the AKQ game, playable against exploitable and optimal opponents
 - [ ] **Push/fold Nash charts:** solve heads-up shove/call ranges locally and drill against them

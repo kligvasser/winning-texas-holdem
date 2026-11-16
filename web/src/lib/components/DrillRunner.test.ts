@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, api } from '../api'
-import { choiceQuestion, correctResult, drills, numberQuestion, wrongResult } from '../../test/fixtures'
+import { choiceQuestion, correctResult, drills, numberQuestion, rangeQuestion, rangeResult, wrongResult } from '../../test/fixtures'
 import DrillRunner from './DrillRunner.svelte'
 
 vi.mock('../api', async (importOriginal) => ({
@@ -156,6 +156,24 @@ describe('DrillRunner', () => {
     expect(await screen.findByRole('button', { name: /^Next ⏎/ })).toBeInTheDocument()
     expect(question).toHaveBeenCalledTimes(2)
     expect(screen.getByLabelText('Session score')).toHaveTextContent('2/3 correct')
+  })
+
+  it('carries your range from street to street, and resets for a new hand', async () => {
+    const turn = { ...rangeQuestion, id: 'r2', prompt: 'After the turn: which hands?' }
+    question.mockResolvedValueOnce(rangeQuestion).mockResolvedValue({ ...rangeQuestion, id: 'r3' })
+    answer.mockResolvedValueOnce({ ...rangeResult, follow_up: turn }).mockResolvedValueOnce(rangeResult)
+    render(DrillRunner, { drills, random: () => 0 })
+    await fireEvent.click(await screen.findByRole('button', { name: 'Clear' }))
+    await fireEvent.pointerDown(screen.getByRole('gridcell', { name: 'AA' }))
+    await fireEvent.pointerUp(window)
+    await fireEvent.click(screen.getByRole('button', { name: 'Lock in' }))
+    expect(answer).toHaveBeenLastCalledWith('r1', ['AA'], expect.any(Number))
+    await fireEvent.click(await screen.findByRole('button', { name: /Next street/ }))
+    expect(screen.getByText('After the turn: which hands?')).toBeInTheDocument()
+    expect(screen.getByText('1 of 169 hand classes')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: 'Lock in' }))
+    await fireEvent.click(await screen.findByRole('button', { name: /^Next ⏎/ }))
+    expect(await screen.findByText('169 of 169 hand classes')).toBeInTheDocument()
   })
 
   it('uses Math.random by default', async () => {

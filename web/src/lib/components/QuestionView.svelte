@@ -21,6 +21,11 @@
       {#if p.bet !== undefined}<span>Bet <strong>{p.bet}</strong></span>{/if}
     </div>
   {/if}
+  {#if p.lines?.length}
+    <ol class="lines" aria-label="Action so far">
+      {#each p.lines as line, i (i)}<li>{line}</li>{/each}
+    </ol>
+  {/if}
   {#if p.board}
     <CardRow label="Board" cards={p.board} />
   {/if}
@@ -66,6 +71,14 @@
     background: rgb(0 0 0 / 0.25);
     padding: 0.2rem 0.7rem;
     border-radius: 999px;
+  }
+  .lines {
+    margin: 0;
+    padding: 0.6rem 0.9rem 0.6rem 2rem;
+    border-radius: 0.6rem;
+    background: rgb(0 0 0 / 0.22);
+    font-size: 0.9rem;
+    line-height: 1.5;
   }
   .prompt {
     font-size: 1.15rem;

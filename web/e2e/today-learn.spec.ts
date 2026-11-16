@@ -1,3 +1,4 @@
+import { answerAnything } from './answer'
 import { expect, test } from '@playwright/test'
 
 test('a full daily session runs to completion', async ({ page }, testInfo) => {
@@ -6,20 +7,12 @@ test('a full daily session runs to completion', async ({ page }, testInfo) => {
   await page.goto('/#/today')
   await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Start session' }).click()
-  const bar = page.getByRole('progressbar', { name: 'Session progress' })
-  const total = Number(await bar.getAttribute('aria-valuemax'))
-  for (let i = 0; i < total; i += 1) {
-    // Wait for the next question to finish loading (inputs are disabled while it does).
-    await expect(page.locator('input:enabled, .choices button:enabled').first()).toBeVisible()
-    const input = page.getByLabel('Your answer')
-    if (await input.isVisible()) {
-      await input.fill('1')
-      await input.press('Enter')
-    } else {
-      await page.keyboard.press('1')
-    }
-    await expect(page.getByRole('heading', { name: /Correct|Not quite/ })).toBeVisible()
+  // Multi-street items (hand stories, hand reading) take several answers, so answer until done.
+  const done = page.getByRole('heading', { name: 'Session complete' })
+  for (let i = 0; i < 80 && !(await done.isVisible()); i += 1) {
+    await answerAnything(page)
     await page.getByRole('button', { name: /Next/ }).click()
+    await expect(done.or(page.locator('.prompt'))).toBeVisible()
   }
   await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible()
 })

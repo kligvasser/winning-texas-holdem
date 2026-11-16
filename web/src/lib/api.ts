@@ -17,6 +17,8 @@ export interface QuestionPayload {
   bet?: number
   /** Extra context shown as chips: villain range, stack, street, stacks and payouts... */
   facts?: { label: string; value: string }[]
+  /** The action so far, one line per action (hand reading). */
+  lines?: string[]
   [key: string]: unknown
 }
 
@@ -25,7 +27,7 @@ export interface Question {
   drill: string
   concept: string
   prompt: string
-  kind: 'number' | 'choice'
+  kind: 'number' | 'choice' | 'range'
   payload: QuestionPayload
   choices: string[]
   unit: string
@@ -47,7 +49,14 @@ export interface GradeResult {
   review?: Review | null
   /** The next step of a multi-street scenario, already issued by the server. */
   follow_up?: Question | null
-  reveal?: { grid?: string[][]; hand?: string; choices?: string[]; label?: string }
+  reveal?: {
+    grid?: string[][]
+    hand?: string | null
+    choices?: string[]
+    label?: string
+    /** Hand reading: how likely each grid cell is (0-1), for a heat map. */
+    weights?: number[][]
+  }
 }
 
 export interface Spot {
@@ -271,7 +280,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(seed === undefined ? {} : { seed }),
     }),
-  answer: (questionId: string, response: number | string, elapsedMs?: number) =>
+  answer: (questionId: string, response: number | string | string[], elapsedMs?: number) =>
     request<GradeResult>('/api/answers', {
       method: 'POST',
       body: JSON.stringify({ question_id: questionId, response, elapsed_ms: elapsedMs }),

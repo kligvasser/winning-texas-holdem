@@ -18,11 +18,15 @@ from enum import StrEnum
 from typing import Any
 
 from holdem.core.cards import Card, cards_str
+from holdem.core.range_score import grade_range
+
+RANGE_PASS_MARGIN = 0.15  # a painted range within 15 points of the best possible match passes
 
 
 class AnswerKind(StrEnum):
     NUMBER = "number"
     CHOICE = "choice"
+    RANGE = "range"  # a set of hand classes painted on the 13x13 grid
 
 
 @dataclass(frozen=True)
@@ -99,8 +103,26 @@ def parse_number(response: object) -> float:
     return value
 
 
-def grade(question: Question, response: float | str) -> Grade:
+def grade(question: Question, response: float | str | list[str]) -> Grade:
     """Grade a response against the question's stored answer."""
+    if question.kind is AnswerKind.RANGE:
+        if isinstance(response, (int, float)):
+            raise ValueError("expected a list of hand classes")
+        painted = (
+            [c.strip() for c in response.split(",")] if isinstance(response, str) else response
+        )
+        score, best, lines = grade_range([c for c in painted if c], question.reveal)
+        return Grade(
+            score >= best - RANGE_PASS_MARGIN and score > 0,
+            round(best * 100, 1),
+            round(score * 100, 1),
+            None,
+            (*lines, *question.explanation),
+            question.highlight,
+            question.reveal,
+            question.tolerance,
+            question.follow_up,
+        )
     if question.kind is AnswerKind.NUMBER:
         value = parse_number(response)
         expected = float(question.answer)

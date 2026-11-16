@@ -214,3 +214,20 @@ def test_bb_helper_and_constants():
     assert bb(5) == 2.5
     assert (HERO, BOT) == (0, 1)
     assert isinstance(new_session("lag", seed=1), PlaySession)
+
+
+def test_decide_samples_from_options_with_a_safe_fallback():
+    hand = HeadsUpHand([200, 200], 0, random.Random(2))
+    hand.act("call")
+    hand.act("check")  # flop, the big blind (player 1) to act
+    bot = Bot(STYLES["tag"], random.Random(0))
+    options = bot.options(hand)
+    assert sum(p for _, _, p in options) == pytest.approx(1)
+
+    class Edge:
+        def random(self):
+            return 1.0  # beyond every bucket, as rounding could leave
+
+    bot.rng = Edge()  # type: ignore[assignment]
+    kind, _ = bot.decide(hand)
+    assert kind == [k for k, _, p in options if p > 0][-1]

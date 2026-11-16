@@ -172,3 +172,31 @@ export const playState = (over: Partial<PlayState> = {}): PlayState => ({
   decisions: [],
   ...over,
 })
+
+const heat = Array.from({ length: 13 }, (_, r) => Array.from({ length: 13 }, (_, c) => (r === 0 && c === 0 ? 1 : r === 0 ? 0.4 : 0)))
+
+export const rangeQuestion: Question = {
+  id: 'r1',
+  drill: 'hand-reading',
+  concept: 'hand-reading',
+  prompt: 'After the flop: which hands can Nit have?',
+  kind: 'range',
+  payload: {
+    hole: ['7s', '2d'],
+    board: ['Kh', '7d', '2c'],
+    lines: ['Preflop: Nit raises to 2.5bb', 'Preflop: You call 1.5bb'],
+    facts: [{ label: 'Villain', value: 'Nit on the button' }],
+  },
+  choices: [],
+  unit: '%',
+}
+
+export const rangeResult: GradeResult = {
+  correct: false,
+  expected: 82.5,
+  response: 61.2,
+  error: null,
+  explanation: ['Your range matched 61% of Nit’s real range; the best possible is 83%.'],
+  highlight: ['As', 'Ad'],
+  reveal: { weights: heat, hand: 'AA', label: "Nit's real range" },
+}

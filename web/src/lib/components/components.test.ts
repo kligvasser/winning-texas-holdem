@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { choiceQuestion, correctResult, numberQuestion, wrongResult } from '../../test/fixtures'
+import { choiceQuestion, correctResult, numberQuestion, rangeQuestion, rangeResult, wrongResult } from '../../test/fixtures'
 import AnswerInput from './AnswerInput.svelte'
 import CardRow from './CardRow.svelte'
 import Feedback from './Feedback.svelte'
@@ -260,5 +260,56 @@ describe('Feedback', () => {
     unmount()
     render(Feedback, { result: { ...wrongResult, review: { rating: 'hard', due } }, onnext: vi.fn() })
     expect(screen.getByText('Getting there. This drill comes back in 1 minute.')).toBeInTheDocument()
+  })
+})
+
+describe('Range answers', () => {
+  it('starts from every hand, edits, clears and locks in', async () => {
+    const onsubmit = vi.fn()
+    render(AnswerInput, { question: rangeQuestion, onsubmit })
+    expect(screen.getByText('169 of 169 hand classes')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(screen.getByText('0 of 169 hand classes')).toBeInTheDocument()
+    await fireEvent.pointerDown(screen.getByRole('gridcell', { name: 'AA' }))
+    await fireEvent.pointerUp(window)
+    await fireEvent.click(screen.getByRole('button', { name: 'Lock in' }))
+    expect(onsubmit).toHaveBeenLastCalledWith(['AA'])
+    await fireEvent.click(screen.getByRole('button', { name: 'All' }))
+    expect(screen.getByText('169 of 169 hand classes')).toBeInTheDocument()
+  })
+
+  it('starts from the previous street and locks while graded', async () => {
+    const onsubmit = vi.fn()
+    render(AnswerInput, { question: rangeQuestion, onsubmit, startRange: ['AA', 'KK'], disabled: true })
+    expect(screen.getByText('2 of 169 hand classes')).toBeInTheDocument()
+    await fireEvent.pointerDown(screen.getByRole('gridcell', { name: 'QQ' }))
+    expect(screen.getByText('2 of 169 hand classes')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Lock in' })).toBeDisabled()
+  })
+})
+
+describe('Hand-reading view and feedback', () => {
+  it('lists the action so far', () => {
+    render(QuestionView, { question: rangeQuestion })
+    expect(screen.getByRole('list', { name: 'Action so far' })).toHaveTextContent('Nit raises to 2.5bb')
+  })
+
+  it('shows the match, the best possible and the real range', () => {
+    render(Feedback, { result: rangeResult, unit: '%', onnext: vi.fn() })
+    expect(document.querySelector('.numbers')).toHaveTextContent('Range match 61.2% · best possible 82.5%')
+    expect(screen.getByRole('grid', { name: "Nit's real range" })).toBeInTheDocument()
+    expect(screen.getByRole('gridcell', { name: 'AA: 100%' })).toHaveClass('hl')
+    expect(screen.getByText(/outlined cell is the hand it actually held/)).toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: /Your estimate/ })).toBeNull()
+  })
+
+  it('omits the actual hand before the last street', () => {
+    render(Feedback, {
+      result: { ...rangeResult, reveal: { ...rangeResult.reveal, hand: null, label: undefined } },
+      unit: '%',
+      onnext: vi.fn(),
+    })
+    expect(screen.getByRole('grid', { name: 'Real range' })).toBeInTheDocument()
+    expect(screen.queryByText(/outlined cell/)).toBeNull()
   })
 })

@@ -118,6 +118,15 @@ test('readme screenshots', async ({ page }) => {
   await expect(result).toBeVisible()
   await page.screenshot({ animations: 'disabled', path: `${OUT}/play-review.png`, fullPage: true })
 
+  await page.goto('/#/math-lab/hand-reading')
+  await expect(page.getByRole('button', { name: 'Lock in' })).toBeEnabled()
+  for (const name of ['72o', '82o', '92o', '32o', '42o', '52o', '62o', '73o', '83o', '93o', 'T2o']) {
+    await page.getByRole('gridcell', { name, exact: true }).click()
+  }
+  await page.getByRole('button', { name: 'Lock in' }).click()
+  await graded(page)
+  await page.screenshot({ animations: 'disabled', path: `${OUT}/hand-reading.png`, fullPage: true })
+
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto('/#/math-lab/flop-equity')
   await page.getByLabel('Your answer').fill('40')

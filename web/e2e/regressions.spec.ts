@@ -1,3 +1,4 @@
+import { questionReady } from './answer'
 import { expect, test } from '@playwright/test'
 
 test('friendly number formats are accepted', async ({ page }) => {
@@ -32,7 +33,7 @@ test('a daily session resumes after a reload', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'phone', 'desktop runs the full-session test')
   await page.goto('/#/today')
   await page.getByRole('button', { name: /Start session|Resume session/ }).first().click()
-  await expect(page.locator('input:enabled, .choices button:enabled').first()).toBeVisible()
+  await questionReady(page)
   await page.getByRole('button', { name: 'Skip' }).click()
   await expect(page.getByText(/^Question 2 of/)).toBeVisible()
   await page.reload()

@@ -349,6 +349,23 @@ CONCEPTS: tuple[Concept, ...] = (
         drills=tuple(d.key for d in STORY_DRILLS),
     ),
     Concept(
+        id="hand-reading",
+        title="Hand reading",
+        tier=4,
+        summary="Narrowing an opponent's range street by street from what they do.",
+        points=(
+            "Start from their preflop range: position and action already remove most hands.",
+            "Each bet, call or check is evidence. Ask which hands would act this way, and how "
+            "often, then keep those in proportion.",
+            "Do not over-narrow: players bluff and slow-play, so a range rarely shrinks to a "
+            "handful of hands before the river.",
+            "Styles matter: a calling station's call means far less than a nit's.",
+        ),
+        prerequisites=("range-equity", "street-by-street"),
+        lectures=(L16_7,),
+        drills=("hand-reading",),
+    ),
+    Concept(
         id="bluff-catching",
         title="Bluff-catching",
         tier=5,

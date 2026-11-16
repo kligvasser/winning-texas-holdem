@@ -1,6 +1,11 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import type { Question } from '../api'
   import { parseAnswer } from '../answer'
+  import { ALL_CELLS } from '../grid'
+  import RangeGrid from './RangeGrid.svelte'
+
+  const EVERY_HAND = ALL_CELLS.map((c) => c.cls)
 
   let {
     question,
@@ -8,17 +13,21 @@
     onsubmit,
     answered = undefined,
     skippable = true,
+    startRange = undefined,
   }: {
     question: Question
     disabled?: boolean
-    onsubmit: (value: number | string) => void
+    onsubmit: (value: number | string | string[]) => void
     /** After grading: what you chose and what was right, to mark the choice buttons. */
     answered?: { response: number | string; expected: number | string }
     /** Whether S skips (not in speed rounds). */
     skippable?: boolean
+    /** Range questions: what to start from (your previous answer); every hand by default. */
+    startRange?: string[]
   } = $props()
 
   let text = $state('')
+  let painted = $state<string[]>([])
   let invalid = $state(false)
   let input = $state<HTMLInputElement>()
   let group = $state<HTMLDivElement>()
@@ -28,6 +37,7 @@
     void question.id
     text = ''
     invalid = false
+    painted = untrack(() => startRange ?? EVERY_HAND)
     input?.focus()
     group?.querySelector('button')?.focus()
   })
@@ -54,7 +64,21 @@
 
 <svelte:window {onkeydown} />
 
-{#if question.kind === 'number'}
+{#if question.kind === 'range'}
+  <div class="range">
+    <RangeGrid
+      {painted}
+      onpaint={disabled ? undefined : (classes) => (painted = classes)}
+      label="Villain's range"
+    />
+    <div class="range-actions">
+      <span class="count">{painted.length} of 169 hand classes</span>
+      <button type="button" {disabled} onclick={() => (painted = [...EVERY_HAND])}>All</button>
+      <button type="button" {disabled} onclick={() => (painted = [])}>Clear</button>
+      <button type="submit" {disabled} onclick={() => onsubmit([...painted])}>Lock in</button>
+    </div>
+  </div>
+{:else if question.kind === 'number'}
   <form class="number" onsubmit={submitNumber}>
     <input
       bind:this={input}
@@ -101,6 +125,17 @@
 {/if}
 
 <style>
+  .range-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+  }
+  .count {
+    color: var(--muted);
+    margin-right: auto;
+  }
   .number {
     display: flex;
     align-items: center;

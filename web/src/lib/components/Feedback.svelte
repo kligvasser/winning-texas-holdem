@@ -18,7 +18,10 @@
   })
 
   const pct = $derived(unit === '%' ? '%' : '')
-  const numeric = $derived(typeof result.expected === 'number' && typeof result.response === 'number')
+  const reading = $derived(!!result.reveal?.weights)
+  const numeric = $derived(
+    !reading && typeof result.expected === 'number' && typeof result.response === 'number',
+  )
   const band = $derived(
     result.tolerance
       ? `answers within ±${result.tolerance}${unit === '%' ? ' pts' : ''} count`
@@ -33,6 +36,12 @@
       >{result.follow_up ? 'Next street ⏎' : 'Next ⏎'}</button
     >
   </div>
+  {#if reading}
+    <p class="numbers">
+      Range match <strong>{result.response}%</strong> · best possible
+      <strong>{result.expected}%</strong>
+    </p>
+  {:else}
   <p class="numbers">
     You said <strong>{result.response}{pct}</strong>, the answer is
     <strong>{result.expected}{pct}</strong>
@@ -41,6 +50,7 @@
     {/if}
     {#if numeric}<span class="band">· {band}</span>{/if}
   </p>
+  {/if}
   {#if numeric && unit === '%'}
     <ClosenessMeter
       expected={result.expected as number}
@@ -53,12 +63,24 @@
       <li>{line}</li>
     {/each}
   </ul>
+  {#if result.reveal?.weights}
+    <details class="chart" open>
+      <summary>{result.reveal.label ?? 'Real range'}</summary>
+      <RangeGrid
+        weights={result.reveal.weights}
+        highlight={result.reveal.hand ?? undefined}
+        label={result.reveal.label ?? 'Real range'}
+      />
+      <p class="band">Darker means more likely.{#if result.reveal.hand}
+          The outlined cell is the hand it actually held.{/if}</p>
+    </details>
+  {/if}
   {#if result.reveal?.grid}
     <details class="chart" open>
       <summary>{result.reveal.label ?? 'Chart for this spot'}</summary>
       <RangeGrid
         grid={result.reveal.grid}
-        highlight={result.reveal.hand}
+        highlight={result.reveal.hand ?? undefined}
         label={result.reveal.label ?? 'Chart for this spot'}
       />
       <ActionLegend actions={result.reveal.choices ?? []} />

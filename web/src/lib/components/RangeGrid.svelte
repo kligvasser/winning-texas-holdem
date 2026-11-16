@@ -8,6 +8,7 @@
     onpaint = undefined,
     paintAction = 'Raise',
     diff = undefined,
+    weights = undefined,
     label = 'Range grid',
   }: {
     /** Action per cell, row-major (display mode). */
@@ -22,6 +23,8 @@
     paintAction?: string
     /** After checking a painted range: cells you missed and cells you added wrongly. */
     diff?: { missed: string[]; extra: string[] }
+    /** Likelihood per cell (0-1), drawn as a heat map. */
+    weights?: number[][]
     label?: string
   } = $props()
 
@@ -99,6 +102,10 @@
   }
 
   function background(row: number, col: number, cls: string): string {
+    if (weights) {
+      const share = Math.round(weights[row][col] * 100)
+      return `color-mix(in srgb, var(--act-raise) ${share}%, var(--act-fold))`
+    }
     if (grid) return actionColor(grid[row][col])
     return paintSet.has(cls) ? actionColor(paintAction) : 'var(--act-fold)'
   }
@@ -115,7 +122,11 @@
   onpointermove={move}
 >
   {#each ALL_CELLS as cell, index (cell.cls)}
-    {@const on = grid ? grid[cell.row][cell.col] !== 'Fold' : paintSet.has(cell.cls)}
+    {@const on = weights
+      ? weights[cell.row][cell.col] >= 0.5
+      : grid
+        ? grid[cell.row][cell.col] !== 'Fold'
+        : paintSet.has(cell.cls)}
     <button
       bind:this={cells[index]}
       type="button"
@@ -127,7 +138,11 @@
       class:missed={missed.has(cell.cls)}
       class:extra={extra.has(cell.cls)}
       aria-selected={on}
-      aria-label={grid ? `${cell.cls}: ${grid[cell.row][cell.col]}` : cell.cls}
+      aria-label={weights
+        ? `${cell.cls}: ${Math.round(weights[cell.row][cell.col] * 100)}%`
+        : grid
+          ? `${cell.cls}: ${grid[cell.row][cell.col]}`
+          : cell.cls}
       tabindex={onpaint && index === focusIndex ? 0 : -1}
       style:background={background(cell.row, cell.col, cell.cls)}
       onpointerdown={(e) => start(e, index)}

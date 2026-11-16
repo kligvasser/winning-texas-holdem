@@ -91,7 +91,7 @@
     best = loadBest(roundKey)
   }
 
-  async function choose(q: Question, choice: number | string) {
+  async function choose(q: Question, choice: number | string | string[]) {
     if (busy || phase !== 'running') return
     busy = true
     try {

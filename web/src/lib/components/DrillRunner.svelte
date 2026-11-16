@@ -40,6 +40,7 @@
   let bestStreak = $state(0)
   let startedAt = 0
   let prefetched: { key: string; promise: Promise<Question> } | null = null
+  let lastRange = $state<string[] | undefined>(undefined) // carried street to street (hand reading)
 
   const current = $derived(drills.find((d) => d.key === question?.drill))
   const correct = $derived(results.filter((r) => r.correct).length)
@@ -60,6 +61,7 @@
   async function next() {
     // A scenario's next street was issued with the grade: show it straight away.
     const step = result?.follow_up
+    if (!step) lastRange = undefined
     if (step) {
       result = null
       question = step
@@ -87,7 +89,8 @@
     }
   }
 
-  async function submit(q: Question, value: number | string) {
+  async function submit(q: Question, value: number | string | string[]) {
+    if (Array.isArray(value)) lastRange = value
     busy = true
     failed = null
     try {
@@ -202,6 +205,7 @@
       disabled={busy || result !== null}
       onsubmit={(v) => submit(question!, v)}
       answered={result ?? undefined}
+      startRange={lastRange}
     />
     {#if failed}
       <div class="failed" role="alert">

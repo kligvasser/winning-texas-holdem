@@ -158,3 +158,14 @@ describe('ActionLegend', () => {
     expect(screen.queryByText(/%/)).toBeNull()
   })
 })
+
+describe('RangeGrid heat map', () => {
+  it('shades cells by likelihood and labels them with percentages', () => {
+    const weights = Array.from({ length: 13 }, (_, r) => Array.from({ length: 13 }, (_, c) => (r === 0 && c === 0 ? 1 : 0.25)))
+    render(RangeGrid, { weights, highlight: 'AA', label: 'Real range' })
+    expect(cell('AA: 100%')).toHaveClass('hl')
+    expect(cell('AA: 100%')).toHaveAttribute('aria-selected', 'true')
+    expect(cell('KK: 25%')).toHaveAttribute('aria-selected', 'false')
+    expect(cell('KK: 25%').style.background).toContain('25%')
+  })
+})

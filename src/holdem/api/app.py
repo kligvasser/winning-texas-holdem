@@ -61,7 +61,7 @@ class PaintRequest(BaseModel):
 
 class AnswerRequest(BaseModel):
     question_id: str
-    response: float | str
+    response: float | str | list[str]
     elapsed_ms: int | None = Field(default=None, ge=0)
 
 
