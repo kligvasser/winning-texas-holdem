@@ -14,6 +14,7 @@ from typing import Any
 
 from fsrs import Card, Rating, Scheduler
 from sqlalchemy import select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from holdem.curriculum import CONCEPTS, CONCEPTS_BY_ID
@@ -57,12 +58,16 @@ def load_card(session: Session, drill: str) -> Card | None:
 
 
 def save_card(session: Session, drill: str, card: Card, now: datetime) -> None:
-    row = session.get(ReviewCard, drill)
-    if row is None:
-        session.add(ReviewCard(drill=drill, card=card.to_json(), created_at=_naive(now)))
-    else:
-        row.card = card.to_json()
+    """Insert or update atomically, so two concurrent answers cannot both insert the card."""
+    data = card.to_json()
+    statement = (
+        sqlite_insert(ReviewCard)
+        .values(drill=drill, card=data, created_at=_naive(now))
+        .on_conflict_do_update(index_elements=[ReviewCard.drill], set_={"card": data})
+    )
+    session.execute(statement)
     session.commit()
+    session.expire_all()
 
 
 @dataclass(frozen=True)

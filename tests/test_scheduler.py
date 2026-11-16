@@ -185,3 +185,15 @@ def test_pick_new_drills_follows_prerequisite_order(session):
     position = {key: i for i, key in enumerate(picked)}
     assert position["hand-ranking"] < position["showdown"] < position["outs"]
     assert position["outs"] < position["draw-odds"] < position["pot-odds"]
+
+
+def test_concurrent_first_saves_do_not_conflict(engine):
+    """Two requests that both saw no card must not crash on the second insert."""
+    with Session(engine) as first, Session(engine) as second:
+        assert load_card(first, "outs") is None
+        assert load_card(second, "outs") is None
+        save_card(first, "outs", Card(due=NOW), NOW)
+        save_card(second, "outs", Card(due=NOW + timedelta(days=1)), NOW)
+        stored = load_card(first, "outs")
+        assert stored is not None
+        assert stored.due == NOW + timedelta(days=1)
