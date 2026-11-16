@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TIER_NAMES, groupByTier, percent, seconds, signed, totals, until } from './format'
+import { EXTRA_TITLES, TIER_NAMES, fixed, groupByTier, percent, seconds, signed, totals, until } from './format'
 
 describe('format', () => {
   it('formats percentages', () => {
@@ -12,6 +12,12 @@ describe('format', () => {
     expect(signed(2.34, ' pts')).toBe('+2.3 pts')
     expect(signed(-1.26)).toBe('-1.3')
     expect(signed(0)).toBe('0')
+  })
+
+  it('formats fixed decimals', () => {
+    expect(fixed(null)).toBe('–')
+    expect(fixed(46.325)).toBe('46.3')
+    expect(EXTRA_TITLES['preflop-paint']).toBe('Paint the range')
   })
 
   it('formats seconds', () => {

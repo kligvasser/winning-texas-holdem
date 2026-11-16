@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api, type DrillMeta, type DrillStats } from '../api'
-  import { percent, seconds, signed, totals } from '../format'
+  import { EXTRA_TITLES, fixed, percent, seconds, signed, totals } from '../format'
 
   let stats = $state<DrillStats[] | null>(null)
   let titles = $state<Record<string, string>>({})
@@ -9,7 +9,7 @@
   $effect(() => {
     Promise.all([api.stats(), api.drills()]).then(
       ([s, drills]: [DrillStats[], DrillMeta[]]) => {
-        titles = Object.fromEntries(drills.map((d) => [d.key, d.title]))
+        titles = { ...EXTRA_TITLES, ...Object.fromEntries(drills.map((d) => [d.key, d.title])) }
         stats = s
       },
       (e: Error) => (error = e.message),
@@ -48,7 +48,7 @@
           <th scope="row">{titles[row.drill] ?? row.drill}</th>
           <td>{row.attempts}</td>
           <td>{percent(row.accuracy)}</td>
-          <td>{row.mean_abs_error ?? '–'}</td>
+          <td>{fixed(row.mean_abs_error)}</td>
           <td class:over={(row.bias ?? 0) > 0} class:under={(row.bias ?? 0) < 0}>
             {signed(row.bias)}
           </td>

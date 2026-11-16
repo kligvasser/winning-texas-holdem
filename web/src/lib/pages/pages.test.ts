@@ -83,6 +83,7 @@ describe('Stats', () => {
     expect(screen.getByText('+1.5')).toHaveClass('over')
     expect(screen.getByText('-1')).toHaveClass('under')
     expect(screen.getByText('2.5s')).toBeInTheDocument()
+    expect(screen.getByText('2.0')).toBeInTheDocument()
   })
 
   it('shows an empty state', async () => {

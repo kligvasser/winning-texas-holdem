@@ -19,6 +19,14 @@ export function until(iso: string, now: Date = new Date()): string {
   return `in ${days} day${days === 1 ? '' : 's'}`
 }
 
+/** One decimal place, or a dash for missing values. */
+export function fixed(value: number | null): string {
+  return value === null ? '–' : value.toFixed(1)
+}
+
+/** Titles for logged activities that are not drills in the registry. */
+export const EXTRA_TITLES: Record<string, string> = { 'preflop-paint': 'Paint the range' }
+
 export function seconds(ms: number | null): string {
   return ms === null ? '–' : `${(ms / 1000).toFixed(1)}s`
 }
