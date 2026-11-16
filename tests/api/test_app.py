@@ -206,3 +206,17 @@ def test_activity_endpoint(engine, tmp_path):
 
 def test_activity_defaults_to_the_local_zone(client):
     assert client.get("/api/activity").json()["streak"] == 0
+
+
+def test_scenario_steps_are_served_one_after_another(client):
+    question = ask(client, key="hand-story", seed=3)
+    seen = 0
+    while question:
+        expected = stored_answer(client, question["id"])
+        result = client.post(
+            "/api/answers", json={"question_id": question["id"], "response": expected}
+        ).json()
+        assert result["correct"]
+        seen += 1
+        question = result["follow_up"]
+    assert seen == 3

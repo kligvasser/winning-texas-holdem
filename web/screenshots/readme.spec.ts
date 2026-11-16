@@ -88,6 +88,15 @@ test('readme screenshots', async ({ page }) => {
   await page.getByRole('heading', { name: 'Session complete' }).waitFor()
   await page.screenshot({ animations: 'disabled', path: `${OUT}/session-summary.png` })
 
+  await page.goto('/#/math-lab/hand-story')
+  await expect(page.locator('.choices button:enabled').first()).toBeVisible()
+  await page.keyboard.press('1')
+  await page.getByRole('button', { name: /Next street/ }).click()
+  await expect(page.locator('.choices button:enabled').first()).toBeVisible()
+  await page.keyboard.press('2')
+  await graded(page)
+  await page.screenshot({ animations: 'disabled', path: `${OUT}/hand-story.png`, fullPage: true })
+
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto('/#/math-lab/flop-equity')
   await page.getByLabel('Your answer').fill('40')

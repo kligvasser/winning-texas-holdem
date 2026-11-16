@@ -132,6 +132,32 @@ describe('DrillRunner', () => {
     expect(question).toHaveBeenCalledTimes(3)
   })
 
+  it('plays a multi-street scenario as one item of a queue', async () => {
+    const river = q('river')
+    const turn = { ...q('turn'), prompt: 'Turn: call or fold?' }
+    question.mockResolvedValueOnce({ ...q('pre'), prompt: 'Open or fold?' }).mockResolvedValue(q('other'))
+    answer
+      .mockResolvedValueOnce({ ...correctResult, follow_up: turn })
+      .mockResolvedValueOnce({ ...wrongResult, follow_up: { ...river, prompt: 'River: bluff?' } })
+      .mockResolvedValueOnce(correctResult)
+    render(DrillRunner, { drills, queue: ['showdown', 'showdown'] })
+    expect(await screen.findByText('Open or fold?')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: /Player 1/ }))
+    expect(await screen.findByRole('button', { name: /Next street/ })).toBeInTheDocument()
+    expect(question).toHaveBeenCalledTimes(1) // no prefetch while the hand is still going
+    await fireEvent.click(screen.getByRole('button', { name: /Next street/ }))
+    expect(screen.getByText('Turn: call or fold?')).toBeInTheDocument()
+    expect(screen.getByText('Question 1 of 2')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: /Player 1/ }))
+    await fireEvent.click(await screen.findByRole('button', { name: /Next street/ }))
+    expect(screen.getByText('River: bluff?')).toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: /Player 1/ }))
+    // The last street finishes the item: the queue advances and the next item is prefetched.
+    expect(await screen.findByRole('button', { name: /^Next ⏎/ })).toBeInTheDocument()
+    expect(question).toHaveBeenCalledTimes(2)
+    expect(screen.getByLabelText('Session score')).toHaveTextContent('2/3 correct')
+  })
+
   it('uses Math.random by default', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     question.mockResolvedValue(numberQuestion)

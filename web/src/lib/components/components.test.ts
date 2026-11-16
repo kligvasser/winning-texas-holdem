@@ -45,6 +45,14 @@ describe('QuestionView', () => {
     expect(screen.getByText('CO')).toBeInTheDocument()
   })
 
+  it('shows fact chips such as the villain range or stack', () => {
+    render(QuestionView, {
+      question: { ...numberQuestion, payload: { facts: [{ label: 'Stack', value: '8bb' }, { label: 'Calls', value: 'top 30%' }] } },
+    })
+    expect(screen.getByText('8bb')).toBeInTheDocument()
+    expect(screen.getByText('top 30%')).toBeInTheDocument()
+  })
+
   it('shows players for showdown questions', () => {
     render(QuestionView, { question: choiceQuestion })
     expect(screen.getByText('Player 2')).toBeInTheDocument()
@@ -219,6 +227,12 @@ describe('Feedback', () => {
     expect(screen.getByRole('grid', { name: 'Chart for this spot' })).toBeInTheDocument()
     expect(screen.getByRole('gridcell', { name: 'A9o: Fold' })).toHaveClass('hl')
     expect(screen.getAllByRole('listitem').map((li) => li.textContent?.trim())).toContain('Raise')
+  })
+
+  it('titles a revealed range', () => {
+    const grid = Array.from({ length: 13 }, () => Array<string>(13).fill('Fold'))
+    render(Feedback, { result: { ...wrongResult, reveal: { grid, label: 'BB calling range' } }, onnext: vi.fn() })
+    expect(screen.getByRole('grid', { name: 'BB calling range' })).toBeInTheDocument()
   })
 
   it('reveals a chart even without listed choices', () => {

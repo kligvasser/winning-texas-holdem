@@ -281,6 +281,88 @@ CONCEPTS: tuple[Concept, ...] = (
         drills=("combos",),
     ),
     Concept(
+        id="range-equity",
+        title="Equity against a range",
+        tier=3,
+        summary="Thinking in ranges: how often a range hits a flop, and how you fare against it.",
+        points=(
+            "Villains do not hold one hand; they hold every hand their actions allow. Weigh "
+            "your equity across all of them.",
+            "Unpaired flops miss most ranges: a typical opening range makes a pair or better "
+            "only about a third of the time.",
+            "Ask two questions: what share of the range am I ahead of now, and how often do I "
+            "improve against the rest?",
+        ),
+        prerequisites=("postflop-equity", "preflop-ranges"),
+        lectures=(L16_7, L16_2),
+        drills=("range-hits", "range-equity"),
+    ),
+    Concept(
+        id="implied-odds",
+        title="Implied odds",
+        tier=3,
+        summary="Calling a draw without the direct price, counting on winning more when you hit.",
+        points=(
+            "If your hit chance is below the pot odds, a call needs extra winnings later.",
+            "Break-even extra = bet / hit chance - pot - 2 x bet.",
+            "Implied odds are best with disguised draws and deep stacks, worst when the "
+            "draw is obvious or the opponent cannot pay you.",
+            "Reverse implied odds: when you hit but still lose (a weaker flush), the draw is "
+            "worth less than its outs suggest.",
+        ),
+        prerequisites=("pot-odds", "spr"),
+        lectures=(L16_2,),
+        drills=("implied-odds",),
+    ),
+    Concept(
+        id="fold-equity",
+        title="Bluffs and fold equity",
+        tier=4,
+        summary="Why betting wins pots you cannot win at showdown.",
+        points=(
+            "EV of a bet = fold% x pot + call% x (your result when called).",
+            "A pure bluff breaks even when villain folds bet / (pot + bet) of the time.",
+            "Semi-bluffs add the equity of your draw when called, so they need fewer folds.",
+            "Bluff where the opponent's range is weak and capped, not into strength.",
+        ),
+        prerequisites=("pot-odds",),
+        lectures=(L16_2, L15_3),
+        drills=("bluff-ev",),
+    ),
+    Concept(
+        id="street-by-street",
+        title="Playing a hand street by street",
+        tier=4,
+        summary="Chaining preflop ranges, pot odds and fold equity through one hand.",
+        points=(
+            "Each street narrows the opponent's range: use their actions to decide which "
+            "hands are left.",
+            "Facing a bet with a draw: compare your one-card equity with the price, then "
+            "decide whether implied odds make up the gap.",
+            "When the draw misses, your hand can only win by betting: bluff when the "
+            "opponent's range folds often enough.",
+        ),
+        prerequisites=("facing-a-raise", "fold-equity", "implied-odds"),
+        lectures=(L16_2, L16_7),
+        drills=("hand-story",),
+    ),
+    Concept(
+        id="bluff-catching",
+        title="Bluff-catching",
+        tier=5,
+        summary="Calling a river bet with a hand that only beats bluffs.",
+        points=(
+            "With a pure bluff-catcher your equity is simply the share of bluffs in their "
+            "betting range.",
+            "Call when bluffs / (value + bluffs) beats the price: bet / (pot + 2 x bet).",
+            "Count combos: a few extra bluff combos can turn a fold into a clear call.",
+            "Against players who rarely bluff the river, fold more than the balance math says.",
+        ),
+        prerequisites=("mdf", "blockers"),
+        lectures=(L16_7, L15_7),
+        drills=("bluff-catch",),
+    ),
+    Concept(
         id="mdf",
         title="MDF, alpha and bluff ratios",
         tier=5,
@@ -300,14 +382,19 @@ CONCEPTS: tuple[Concept, ...] = (
         id="icm",
         title="Push/fold and ICM",
         tier=6,
-        summary="Short-stack tournament play. Drills arrive with the tournament module.",
+        summary="Short-stack tournament play: shove-or-fold decisions and prize equity.",
         points=(
-            "Under about 10bb, shoving or folding is close to optimal.",
+            "Under about 10-15bb, shoving or folding is close to optimal: no room to raise "
+            "and fold.",
+            "Shove EV = fold% x the blinds + call% x (equity x final pot - your stack); "
+            "compare it with folding.",
             "ICM converts chip stacks into prize equity: chips you lose are worth more than "
-            "chips you win, so calls near the money need more equity.",
+            "chips you win, so calls near the money need more equity than chip odds say.",
+            "Short stacks are worth more than their chip share and big stacks less.",
         ),
         prerequisites=("preflop-equity", "pot-odds"),
         lectures=(L16_3, L16_6, L15_5),
+        drills=("push-fold", "icm-equity"),
     ),
 )
 

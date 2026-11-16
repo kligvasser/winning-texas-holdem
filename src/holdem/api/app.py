@@ -133,7 +133,15 @@ def create_app(
             elapsed_ms=body.elapsed_ms,
         )
         review = on_attempt(session, question.drill, now)
-        return {**result.public(), "review": review.public() if review else None}
+        follow_up = None
+        if result.follow_up is not None:  # the next street of a multi-step scenario
+            request.app.state.questions.add(result.follow_up)
+            follow_up = result.follow_up.public()
+        return {
+            **result.public(),
+            "review": review.public() if review else None,
+            "follow_up": follow_up,
+        }
 
     @app.get("/api/activity")
     def practice_activity(session: SessionDep) -> dict[str, Any]:

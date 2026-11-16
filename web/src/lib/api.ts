@@ -13,6 +13,8 @@ export interface QuestionPayload {
   players?: string[][]
   pot?: number
   bet?: number
+  /** Extra context shown as chips: villain range, stack, street, stacks and payouts... */
+  facts?: { label: string; value: string }[]
   [key: string]: unknown
 }
 
@@ -41,7 +43,9 @@ export interface GradeResult {
   explanation: string[]
   highlight: string[]
   review?: Review | null
-  reveal?: { grid?: string[][]; hand?: string; choices?: string[] }
+  /** The next step of a multi-street scenario, already issued by the server. */
+  follow_up?: Question | null
+  reveal?: { grid?: string[][]; hand?: string; choices?: string[]; label?: string }
 }
 
 export interface Spot {

@@ -7,6 +7,11 @@
 </script>
 
 <section class="felt" aria-label="Situation">
+  {#if p.facts?.length}
+    <div class="chips">
+      {#each p.facts as fact (fact.label)}<span>{fact.label} <strong>{fact.value}</strong></span>{/each}
+    </div>
+  {/if}
   {#if typeof p.position === 'string'}
     <div class="chips"><span>Position <strong>{p.position}</strong></span></div>
   {/if}
@@ -53,7 +58,8 @@
   }
   .chips {
     display: flex;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
     font-size: 0.95rem;
   }
   .chips span {

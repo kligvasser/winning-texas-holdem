@@ -39,6 +39,7 @@ class Question:
     explanation: tuple[str, ...] = ()
     highlight: tuple[str, ...] = ()
     reveal: dict[str, Any] = field(default_factory=dict)  # extra data shown after answering
+    follow_up: Question | None = None  # next step of a multi-street scenario
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
     def public(self) -> dict[str, Any]:
@@ -64,6 +65,7 @@ class Grade:
     highlight: tuple[str, ...]
     reveal: dict[str, Any] = field(default_factory=dict)
     tolerance: float = 0.0
+    follow_up: Question | None = None
 
     def public(self) -> dict[str, Any]:
         return {
@@ -113,6 +115,7 @@ def grade(question: Question, response: float | str) -> Grade:
             question.highlight,
             question.reveal,
             question.tolerance,
+            question.follow_up,
         )
     if response not in question.choices:
         raise ValueError(f"{response!r} is not one of the choices")
@@ -124,6 +127,8 @@ def grade(question: Question, response: float | str) -> Grade:
         question.explanation,
         question.highlight,
         question.reveal,
+        question.tolerance,
+        question.follow_up,
     )
 
 

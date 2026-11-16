@@ -64,3 +64,16 @@ test('painting on a phone: taps toggle and swipes scroll', async ({ page }, test
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
   await expect(page.getByText('1 hands painted')).toBeVisible()
 })
+
+test('a hand story plays three streets in order', async ({ page }) => {
+  await page.goto('/#/math-lab/hand-story')
+  for (const street of ['Preflop', 'Turn', 'River']) {
+    await expect(page.getByText(new RegExp(`^Street ${street}`))).toBeVisible()
+    await expect(page.locator('.choices button:enabled').first()).toBeVisible()
+    await page.keyboard.press('1')
+    await expect(page.getByRole('heading', { name: /Correct|Not quite/ })).toBeVisible()
+    if (street !== 'River') await page.getByRole('button', { name: /Next street/ }).click()
+  }
+  await expect(page.getByText(/BB actually had/)).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Next ⏎/ })).toBeVisible()
+})

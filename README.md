@@ -56,11 +56,29 @@ seeded Monte Carlo otherwise), and every graded answer comes with the working, n
   </tr>
 </table>
 
+### Training inventory
+
+24 drills plus paint-the-range across all seven tiers. Every answer is computed by the engine from the assumptions stated in the question.
+
+| Tier | Drills |
+|---|---|
+| 0 · Mechanics | Name the hand · Who wins? · Find the nuts |
+| 1 · Core maths | Count your outs · Outs to percent · Pot odds · Call or fold · Preflop all-in equity · Flop equity · Starting-hand odds · Flop odds |
+| 2 · Preflop | Open or fold · Facing a raise · Paint the range |
+| 3 · Ranges | Equity vs a range · How often does the range hit? · Implied odds · Count combos (blockers) · Stack-to-pot ratio |
+| 4 · Postflop | Bluff EV (pure and semi-bluffs) · **Hand story**: one hand played street by street |
+| 5 · Game theory | MDF, alpha and bluff ratios · Bluff-catching |
+| 6 · Tournaments | Shove or fold (push/fold EV) · ICM: what are your chips worth? |
+
+<img src="docs/images/hand-story.png" alt="Hand story, turn step: flush draw facing a lead, with fact chips for the street and villain's range, and a pot-odds verdict" width="880">
+
+**Hand story** plays one hand from the button: open, face a turn lead with a flush draw against
+the big blind's leading range, then decide whether to bluff the missed river. Each street is graded,
+and at the end you see the hand the big blind actually held.
+
 ### Math Lab: the numbers behind every decision
 
-Fourteen fast, keyboard-driven drills: hand rankings, reading the board, outs, outs to percent,
-pot odds, call or fold, preflop and flop equity, starting-hand odds, flop odds, combos and
-blockers, stack-to-pot ratio, and MDF / alpha / bluff ratios.
+Fast, keyboard-driven drills on outs, pot odds, equity, combos, flop odds, SPR, MDF and bluff ratios.
 
 <table>
   <tr>
@@ -154,8 +172,7 @@ flowchart LR
 ## Curriculum map
 
 Concepts and their prerequisites, generated from
-[`src/holdem/curriculum.py`](src/holdem/curriculum.py). Tier 4 (postflop play) arrives with the
-bot table.
+[`src/holdem/curriculum.py`](src/holdem/curriculum.py).
 
 ```mermaid
 flowchart LR
@@ -179,8 +196,15 @@ flowchart LR
   subgraph T3["Tier 3 · Ranges"]
     spr["Stack-to-pot ratio"]
     blockers["Blockers and combo counting"]
+    range_equity["Equity against a range"]
+    implied_odds["Implied odds"]
+  end
+  subgraph T4["Tier 4 · Postflop"]
+    fold_equity["Bluffs and fold equity"]
+    street_by_street["Playing a hand street by street"]
   end
   subgraph T5["Tier 5 · Game theory"]
+    bluff_catching["Bluff-catching"]
     mdf["MDF, alpha and bluff ratios"]
   end
   subgraph T6["Tier 6 · Tournaments"]
@@ -199,6 +223,16 @@ flowchart LR
   pot_odds --> facing_a_raise
   pot_odds --> spr
   combinatorics --> blockers
+  postflop_equity --> range_equity
+  preflop_ranges --> range_equity
+  pot_odds --> implied_odds
+  spr --> implied_odds
+  pot_odds --> fold_equity
+  facing_a_raise --> street_by_street
+  fold_equity --> street_by_street
+  implied_odds --> street_by_street
+  mdf --> bluff_catching
+  blockers --> bluff_catching
   pot_odds --> mdf
   spr --> mdf
   preflop_equity --> icm
@@ -292,9 +326,13 @@ npm run screenshots                # regenerate the images in this README
 - [x] **Math Lab:** 14 drills with explanations, answer log, per-drill stats and bias
 - [x] **Scheduler and curriculum:** FSRS reviews, daily session, prerequisites, Learn pages
 - [x] **Preflop trainer:** baseline charts, edge-weighted spot drills, paint-the-range, leak report
+- [x] **Ranges, fold equity, tournaments:** equity vs ranges, range hits, implied odds, bluff EV, bluff-catching, push/fold EV, ICM, and a street-by-street hand story
 - [ ] **Play and review:** 6-max table against bot archetypes (nit, TAG, LAG, calling station, maniac), hand histories, review sorted by biggest mistake
-- [ ] **Ranges and postflop:** range vs board, range advantage, hand-reading drill scored against the bot's true range
-- [ ] **Tournaments and toy games:** push/fold Nash trainer, ICM quiz, the MIT problem-set betting game
+- [ ] **Hand reading:** narrow a bot's range street by street, scored against the bot's true range
+- [ ] **More hand stories:** set-mining, top pair facing aggression, 3-bet pots, multiway; written as data so new stories need no code
+- [ ] **Speed rounds:** 60-second keyboard sprints on choice drills, with personal bests
+- [ ] **Toy games:** the MIT problem-set betting game and the AKQ game, playable against exploitable and optimal opponents
+- [ ] **Push/fold Nash charts:** solve heads-up shove/call ranges locally and drill against them
 - [ ] **Solver reference (optional):** offline heads-up flop solutions for postflop grading
 
 ## Sources and caveats

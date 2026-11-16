@@ -29,7 +29,9 @@
 <section class="feedback" class:correct={result.correct} aria-live="polite">
   <div class="head">
     <h3>{result.correct ? 'Correct' : 'Not quite'}</h3>
-    <button bind:this={button} type="button" class="next" onclick={onnext}>Next ⏎</button>
+    <button bind:this={button} type="button" class="next" onclick={onnext}
+      >{result.follow_up ? 'Next street ⏎' : 'Next ⏎'}</button
+    >
   </div>
   <p class="numbers">
     You said <strong>{result.response}{pct}</strong>, the answer is
@@ -53,8 +55,12 @@
   </ul>
   {#if result.reveal?.grid}
     <details class="chart" open>
-      <summary>Chart for this spot</summary>
-      <RangeGrid grid={result.reveal.grid} highlight={result.reveal.hand} label="Chart for this spot" />
+      <summary>{result.reveal.label ?? 'Chart for this spot'}</summary>
+      <RangeGrid
+        grid={result.reveal.grid}
+        highlight={result.reveal.hand}
+        label={result.reveal.label ?? 'Chart for this spot'}
+      />
       <ActionLegend actions={result.reveal.choices ?? []} />
     </details>
   {/if}

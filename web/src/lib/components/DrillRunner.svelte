@@ -58,6 +58,14 @@
   }
 
   async function next() {
+    // A scenario's next street was issued with the grade: show it straight away.
+    const step = result?.follow_up
+    if (step) {
+      result = null
+      question = step
+      startedAt = performance.now()
+      return
+    }
     const ready = prefetched
     prefetched = null
     const key = ready?.key ?? keyAt(position)
@@ -86,12 +94,13 @@
       const ms = Math.round(performance.now() - startedAt)
       const graded = await api.answer(q.id, value, ms)
       result = graded
-      position += 1
+      // A multi-step scenario counts as one item of the session, finished at its last step.
+      if (!graded.follow_up) position += 1
       results = [...results, { drill: q.drill, correct: graded.correct, ms }]
       streak = graded.correct ? streak + 1 : 0
       bestStreak = Math.max(bestStreak, streak)
       onprogress?.({ position, results, skipped })
-      prefetch()
+      if (!graded.follow_up) prefetch()
     } catch (e) {
       // Keep the question on screen. A 404 means the server forgot it (it restarted).
       failed =
