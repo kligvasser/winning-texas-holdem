@@ -11,8 +11,8 @@
 <div class="row">
   <span class="label">{label}</span>
   <div class="cards">
-    {#each cards as code (code)}
-      <PlayingCard {code} highlight={highlight.includes(code)} />
+    {#each cards as code, i (code)}
+      <PlayingCard {code} highlight={highlight.includes(code)} order={i} />
     {/each}
   </div>
 </div>

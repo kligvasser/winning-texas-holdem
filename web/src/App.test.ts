@@ -9,6 +9,18 @@ vi.mock('./lib/api', () => ({
     drills: vi.fn(() => Promise.resolve(drills)),
     stats: vi.fn(() => Promise.resolve([])),
     today: vi.fn(() => Promise.resolve({ due: [], new: [], extra: [], queue: [] })),
+    activity: vi.fn(() =>
+      Promise.resolve({
+        today: '2026-11-16',
+        answered_today: 0,
+        correct_today: 0,
+        practiced_today: false,
+        streak: 0,
+        best_streak: 0,
+        total: 0,
+        history: [],
+      }),
+    ),
     curriculum: vi.fn(() => Promise.resolve({ concepts: [], cards: {}, materials: [] })),
     spots: vi.fn(() => Promise.resolve([])),
     leaks: vi.fn(() => Promise.resolve([])),

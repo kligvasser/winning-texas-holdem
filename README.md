@@ -12,7 +12,7 @@ just before you forget it. Built around MIT's
 ![Tests](https://img.shields.io/badge/tests-pytest%20%7C%20vitest%20%7C%20playwright-6e40c9)
 
 <p align="center">
-  <img src="docs/images/home.png" alt="Home page with the felt-green hero and links to Learn, Math Lab, Preflop and Progress" width="880">
+  <img src="docs/images/home.png" alt="Home dashboard: streak, daily goal ring, drills due and a one-click start for today's session" width="880">
 </p>
 
 Every number the app shows is computed by its own engine (exact enumeration where it is feasible,
@@ -33,6 +33,29 @@ seeded Monte Carlo otherwise), and every graded answer comes with the working, n
 
 ## What you can do
 
+### Built to be played every day
+
+- **Daily streak and goal.** The home dashboard shows your streak (it greys out until you practise
+  today), a 20-answer goal ring, how many drills are due, and a one-click start.
+- **Combos.** Two correct answers in a row light up a 🔥 counter; the session summary records your
+  best streak.
+- **Fast, keyboard-first flow.** Cards deal in, the next question is fetched while you read the
+  explanation, Enter checks and moves on, 1–9 pick a choice, S skips.
+- **Forgiving input.** `25`, `25%`, `0,25` and `1/4` all work; anything else gets a hint instead
+  of silence.
+- **Sessions survive reloads.** Leave a daily session half way and resume it later the same day.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/closeness-meter.png" alt="Feedback with a closeness meter showing your estimate, the answer and the accepted band"></td>
+    <td width="50%"><img src="docs/images/session-summary.png" alt="Session summary with score, accuracy, best streak and time per answer"></td>
+  </tr>
+  <tr>
+    <td><b>Closeness meter.</b> Every percentage answer shows your estimate against the truth and the accepted band.</td>
+    <td><b>Session summary.</b> Score, accuracy, best streak and speed, with confetti for a strong session.</td>
+  </tr>
+</table>
+
 ### Math Lab: the numbers behind every decision
 
 Fourteen fast, keyboard-driven drills: hand rankings, reading the board, outs, outs to percent,
@@ -41,12 +64,12 @@ blockers, stack-to-pot ratio, and MDF / alpha / bluff ratios.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/drill-call-or-fold.png" alt="Call-or-fold drill: equity versus the price of the call, with the EV of calling"></td>
+    <td width="50%"><img src="docs/images/drill-call-or-fold.png" alt="Call-or-fold drill: the chosen answer marked, equity versus the price, and the EV of calling"></td>
     <td width="50%"><img src="docs/images/drill-outs.png" alt="Outs drill: the winning cards, tainted outs, and the key cards drawn below"></td>
   </tr>
   <tr>
-    <td><b>Call or fold.</b> Your equity against the price, and what the call is worth in chips.</td>
-    <td><b>Count your outs.</b> The exact out cards, plus the tainted ones that improve you but still lose.</td>
+    <td><b>Call or fold.</b> Your equity against the price (split pots included), and what the call is worth in chips.</td>
+    <td><b>Count your outs.</b> The exact out cards, plus tainted ones: cards that improve your own hand but still lose.</td>
   </tr>
 </table>
 
@@ -69,8 +92,9 @@ full chart appears with your hand outlined.
 
 <img src="docs/images/preflop-overview.png" alt="Preflop overview with the weakest-spots table and the list of charts" width="880">
 
-The Preflop page ranks your **weakest spots** and the hands you miss most in each, so you know
-exactly what to drill next.
+The Preflop page lists your **weakest spots** (below 80%) and the hands you miss most in each. Painting
+works with a mouse drag, a finger tap (swipes still scroll the page) or the keyboard (arrow keys move,
+Enter toggles).
 
 ### Today: a daily session that schedules itself
 
@@ -87,10 +111,12 @@ exactly what to drill next.
 
 ### Progress: where your estimates go wrong
 
-<img src="docs/images/progress.png" alt="Progress table with accuracy, mean error, signed bias and average time per drill" width="880">
+<img src="docs/images/progress.png" alt="Progress page with streak tiles, a 12-week activity heatmap and drills sorted weakest first" width="880">
 
+A 12-week activity heatmap, streak tiles, and every drill sorted weakest first with an accuracy bar.
 Besides accuracy and speed, every numeric drill tracks your **bias**: the average signed error.
-"You underestimate preflop equity by 1.7 points" is more useful than "you got it wrong".
+"You underestimate preflop equity by 1.7 points" is more useful than "you got it wrong". Click any
+drill to practise it.
 
 <details>
 <summary>Dark mode</summary>

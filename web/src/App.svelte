@@ -15,6 +15,17 @@
     { page: 'stats', label: 'Progress' },
   ]
   const route = $derived(router.route)
+  const TITLES: Record<string, string> = {
+    home: 'Home',
+    today: 'Today',
+    learn: 'Learn',
+    'math-lab': 'Math Lab',
+    preflop: 'Preflop',
+    stats: 'Progress',
+  }
+  $effect(() => {
+    document.title = `${TITLES[route.page] ?? 'Not found'} · Hold'em Trainer`
+  })
 </script>
 
 <header class="topbar">
@@ -74,6 +85,7 @@
     gap: 0.25rem;
     max-width: 100%;
     overflow-x: auto;
+    padding: 4px; /* room for the focus ring inside the scroll area */
   }
   nav a {
     white-space: nowrap;

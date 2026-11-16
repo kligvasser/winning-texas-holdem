@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ALL_CELLS, actionColor, gridClass } from './grid'
+import { ALL_CELLS, actionColor, classCombos, gridClass } from './grid'
 
 describe('grid', () => {
   it('lays out pairs, suited and offsuit hands', () => {
@@ -20,5 +20,13 @@ describe('grid', () => {
     expect(actionColor('Call')).toBe('var(--act-call)')
     expect(actionColor('Raise')).toBe('var(--act-raise)')
     expect(actionColor('3-bet')).toBe('var(--act-raise)')
+  })
+})
+
+describe('classCombos', () => {
+  it('counts combos per class', () => {
+    expect(classCombos('AA')).toBe(6)
+    expect(classCombos('AKs')).toBe(4)
+    expect(classCombos('AKo')).toBe(12)
   })
 })

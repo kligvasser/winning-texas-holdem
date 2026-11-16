@@ -35,6 +35,13 @@
   <p class="eyebrow">Tier {concept.tier} · {TIER_NAMES[concept.tier]}</p>
   <h1>{concept.title}</h1>
   <p class="lead">{concept.summary}</p>
+  {#if concept.attempts}
+    <p class="mastery">
+      <span class="badge-inline status-{concept.status}">{concept.status}</span>
+      Mastery {percent(concept.mastery)} over your last {concept.attempts} answers
+      <span class="bar" aria-hidden="true"><span style:width={percent(concept.mastery)}></span></span>
+    </p>
+  {/if}
   <ul class="points">
     {#each concept.points as point, i (i)}<li>{point}</li>{/each}
   </ul>
@@ -47,14 +54,15 @@
       {/each}
     </div>
   {:else}
-    <p class="muted">Drills for this concept arrive in a later milestone.</p>
+    <p class="muted">Coming soon: drills for this concept are on the roadmap.</p>
   {/if}
 
   {#if concept.prerequisites.length}
     <h2>Builds on</h2>
     <p>
-      {#each concept.prerequisites as id, i (id)}{#if i},
-        {/if}<a href={href('learn', id)}>{byId.get(id)?.title ?? id}</a>{/each}
+      {#each concept.prerequisites as id, i (id)}{i ? ', ' : ''}<a href={href('learn', id)}
+          >{byId.get(id)?.title ?? id}</a
+        >{/each}
     </p>
   {/if}
 
@@ -102,6 +110,23 @@
   .muted,
   .summary {
     color: var(--muted);
+  }
+  .mastery {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.9rem;
+  }
+  .mastery .bar {
+    width: 8rem;
+  }
+  .badge-inline {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
   }
   .eyebrow {
     margin: 0;

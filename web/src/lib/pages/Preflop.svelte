@@ -3,6 +3,7 @@
   import ActionLegend from '../components/ActionLegend.svelte'
   import RangeGrid from '../components/RangeGrid.svelte'
   import { percent } from '../format'
+  import { classCombos } from '../grid'
   import { href } from '../router.svelte'
 
   let { params = [] }: { params?: string[] } = $props()
@@ -28,6 +29,20 @@
   const paintAction = $derived(
     spot && params[1] === 'paint' && actions(spot).includes(params[2]) ? params[2] : undefined,
   )
+
+  const weakest = $derived(leaks.filter((l) => l.accuracy < 0.8).slice(0, 3))
+
+  function paint(classes: string[]) {
+    painted = classes
+    result = null // a changed grid makes the old result stale
+  }
+
+  function summarise(hands: string[]): string {
+    const combos = hands.reduce((sum, h) => sum + classCombos(h), 0)
+    const biggest = [...hands].sort((a, b) => classCombos(b) - classCombos(a)).slice(0, 5)
+    const more = hands.length > biggest.length ? '…' : ''
+    return `${hands.length} hands (${combos} combos), biggest: ${biggest.join(', ')}${more}`
+  }
 
   async function check(s: Spot, action: string) {
     try {
@@ -58,7 +73,8 @@
   </p>
   <RangeGrid
     {painted}
-    onpaint={(classes) => (painted = classes)}
+    onpaint={paint}
+    {paintAction}
     diff={result ?? undefined}
     label="Your range"
   />
@@ -68,16 +84,18 @@
       <h2>{result.combos_wrong === 0 ? 'Perfect' : `${result.combos_wrong} combos off`}</h2>
       <p>
         {percent(result.accuracy, 1)} of all combos classified correctly.
-        {#if result.missed.length}<br /><span class="missed">Missed:</span>
-          {result.missed.join(', ')}{/if}
-        {#if result.extra.length}<br /><span class="extra">Should not be here:</span>
-          {result.extra.join(', ')}{/if}
+        {#if result.missed.length}<br /><span class="missed">Missed</span>
+          {summarise(result.missed)}{/if}
+        {#if result.extra.length}<br /><span class="extra">Should not be here</span>
+          {summarise(result.extra)}{/if}
       </p>
       <button type="button" onclick={reset}>Try again</button>
     </section>
   {:else}
     <div class="actions">
-      <button type="submit" onclick={() => check(spot, paintAction)}>Check</button>
+      <button type="submit" disabled={painted.length === 0} onclick={() => check(spot, paintAction)}
+        >Check</button
+      >
       <button type="button" onclick={reset}>Clear</button>
     </div>
   {/if}
@@ -94,7 +112,7 @@
       <a class="button" href={href('preflop', spot.id, 'paint', action)}>Paint the {action} range</a>
     {/each}
     <a class="button secondary" href={href('math-lab', spot.kind === 'open' ? 'preflop-open' : 'preflop-defend')}
-      >Drill these spots</a
+      >{spot.kind === 'open' ? 'Drill all opening spots' : 'Drill all facing-a-raise spots'}</a
     >
   </div>
 {:else}
@@ -103,14 +121,14 @@
     Baseline charts for 6-max cash at 100bb. Study a chart, paint it from memory, then drill the
     hands at its edges.
   </p>
-  {#if leaks.length}
+  {#if weakest.length}
     <h2>Your weakest spots</h2>
     <table>
       <thead>
         <tr><th scope="col">Spot</th><th scope="col">Answers</th><th scope="col">Accuracy</th><th scope="col">Most missed</th></tr>
       </thead>
       <tbody>
-        {#each leaks as leak (leak.spot)}
+        {#each weakest as leak (leak.spot)}
           <tr>
             <th scope="row"><a href={href('preflop', leak.spot)}>{leak.position}: {leak.situation}</a></th>
             <td>{leak.attempts}</td>

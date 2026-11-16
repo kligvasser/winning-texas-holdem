@@ -1,4 +1,4 @@
-import type { Concept, Curriculum, DailyPlan, DrillMeta, DrillStats, GradeResult, Question, Spot, SpotLeak } from '../lib/api'
+import type { Activity, Concept, Curriculum, DailyPlan, DrillMeta, DrillStats, GradeResult, Question, Spot, SpotLeak } from '../lib/api'
 
 export const drills: DrillMeta[] = [
   { key: 'pot-odds', title: 'Pot odds', concept: 'pot-odds', tier: 1, description: 'Need?' },
@@ -117,3 +117,18 @@ export const leaks: SpotLeak[] = [
   { spot: 'utg-open', position: 'UTG', situation: 'Folded to you under the gun.', attempts: 4, correct: 1, accuracy: 0.25, missed_hands: [{ hand: 'A9o', count: 2 }] },
   { spot: 'bb-vs-btn', position: 'BB', situation: 'The button opens.', attempts: 2, correct: 2, accuracy: 1, missed_hands: [] },
 ]
+
+export const activity: Activity = {
+  today: '2026-11-16',
+  answered_today: 8,
+  correct_today: 6,
+  practiced_today: true,
+  streak: 4,
+  best_streak: 6,
+  total: 144,
+  history: [
+    { date: '2026-11-11', answers: 0, correct: 0 },
+    { date: '2026-11-12', answers: 3, correct: 2 },
+    { date: '2026-11-13', answers: 40, correct: 30 },
+  ],
+}

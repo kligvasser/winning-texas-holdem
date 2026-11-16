@@ -18,6 +18,12 @@ export const ALL_CELLS: { row: number; col: number; cls: string }[] = Array.from
   },
 )
 
+/** Combos in a hand class: pairs 6, suited 4, offsuit 12. */
+export function classCombos(cls: string): number {
+  if (cls.length === 2) return 6
+  return cls.endsWith('s') ? 4 : 12
+}
+
 /** CSS colour token for an action label. */
 export function actionColor(action: string): string {
   if (action === 'Fold') return 'var(--act-fold)'

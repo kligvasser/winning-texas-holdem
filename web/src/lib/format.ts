@@ -58,3 +58,28 @@ export function groupByTier<T extends { tier: number }>(items: T[]): [number, T[
   for (const item of items) groups.set(item.tier, [...(groups.get(item.tier) ?? []), item])
   return [...groups.entries()].sort(([a], [b]) => a - b)
 }
+
+/** Answers per day that count as a full practice day on the home dashboard. */
+export const DAILY_GOAL = 20
+
+/** Heatmap intensity 0-4 for a day's answer count. */
+export function activityLevel(answers: number): number {
+  if (answers === 0) return 0
+  if (answers < 5) return 1
+  if (answers < 15) return 2
+  if (answers < 30) return 3
+  return 4
+}
+
+/** Days to leave blank before the first heatmap cell so columns are Monday-to-Sunday weeks. */
+export function mondayOffset(iso: string): number {
+  return (new Date(`${iso}T00:00:00Z`).getUTCDay() + 6) % 7
+}
+
+/** Plain-language note on when a drill comes back, from its spaced-repetition review. */
+export function reviewMessage(rating: string, due: string, now: Date = new Date()): string {
+  const when = until(due, now)
+  if (rating === 'again') return `This drill comes back for another go ${when}.`
+  if (rating === 'hard') return `Getting there. This drill comes back ${when}.`
+  return `Locked in. You'll see this drill again ${when}.`
+}

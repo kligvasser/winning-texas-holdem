@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EXTRA_TITLES, TIER_NAMES, fixed, groupByTier, percent, seconds, signed, totals, until } from './format'
+import { reviewMessage, DAILY_GOAL, EXTRA_TITLES, TIER_NAMES, activityLevel, fixed, mondayOffset, groupByTier, percent, seconds, signed, totals, until } from './format'
 
 describe('format', () => {
   it('formats percentages', () => {
@@ -64,5 +64,26 @@ describe('groupByTier', () => {
       [2, [{ tier: 2, k: 'a' }, { tier: 2, k: 'c' }]],
     ])
     expect(groupByTier([])).toEqual([])
+  })
+})
+
+describe('heatmap helpers', () => {
+  it.each([[0, 0], [1, 1], [4, 1], [5, 2], [14, 2], [15, 3], [29, 3], [30, 4]])('%i answers is level %i', (n, level) => {
+    expect(activityLevel(n)).toBe(level)
+  })
+
+  it('counts days since Monday', () => {
+    expect(mondayOffset('2026-11-16')).toBe(0) // Monday
+    expect(mondayOffset('2026-11-22')).toBe(6) // Sunday
+    expect(DAILY_GOAL).toBeGreaterThan(0)
+  })
+})
+
+describe('reviewMessage', () => {
+  it('speaks plainly about each rating', () => {
+    const now = new Date('2026-11-16T12:00:00Z')
+    expect(reviewMessage('good', '2026-11-19T12:00:00Z', now)).toBe("Locked in. You'll see this drill again in 3 days.")
+    expect(reviewMessage('easy', '2026-11-19T12:00:00Z', now)).toMatch(/^Locked in/)
+    expect(reviewMessage('again', '2026-11-16T12:10:00Z')).toMatch(/another go/)
   })
 })

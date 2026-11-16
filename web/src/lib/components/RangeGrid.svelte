@@ -6,6 +6,7 @@
     highlight = undefined,
     painted = [],
     onpaint = undefined,
+    paintAction = 'Raise',
     diff = undefined,
     label = 'Range grid',
   }: {
@@ -17,6 +18,8 @@
     painted?: string[]
     /** Called with the new painted set; enables paint mode. */
     onpaint?: (classes: string[]) => void
+    /** The action being painted, which sets the paint colour. */
+    paintAction?: string
     /** After checking a painted range: cells you missed and cells you added wrongly. */
     diff?: { missed: string[]; extra: string[] }
     label?: string
@@ -26,42 +29,82 @@
   const missed = $derived(new Set(diff?.missed))
   const extra = $derived(new Set(diff?.extra))
   let dragValue: boolean | null = null
+  let last: { row: number; col: number } | null = null
+  let focusIndex = $state(0)
+  let cells = $state<HTMLButtonElement[]>([])
 
-  function apply(cls: string, value: boolean) {
-    if (paintSet.has(cls) === value) return
+  function setMany(classes: string[], value: boolean) {
     const next = new Set(paintSet)
-    if (value) next.add(cls)
-    else next.delete(cls)
-    onpaint?.([...next])
+    for (const cls of classes) {
+      if (value) next.add(cls)
+      else next.delete(cls)
+    }
+    if (next.size !== paintSet.size || classes.some((c) => paintSet.has(c) !== value)) {
+      onpaint?.([...next])
+    }
   }
 
-  function start(event: PointerEvent, cls: string) {
-    if (!onpaint) return
+  /** Cells on the straight line between two cells, so fast drags do not skip any. */
+  function between(a: { row: number; col: number }, b: { row: number; col: number }): string[] {
+    const steps = Math.max(Math.abs(b.row - a.row), Math.abs(b.col - a.col))
+    return Array.from({ length: steps + 1 }, (_, i) => {
+      const t = steps === 0 ? 0 : i / steps
+      const row = Math.round(a.row + (b.row - a.row) * t)
+      const col = Math.round(a.col + (b.col - a.col) * t)
+      return ALL_CELLS[row * 13 + col].cls
+    })
+  }
+
+  function start(event: PointerEvent, index: number) {
+    // Touch: a tap toggles (handled on click) and a swipe scrolls the page.
+    if (!onpaint || event.pointerType === 'touch') return
     event.preventDefault()
-    dragValue = !paintSet.has(cls)
-    apply(cls, dragValue)
+    const cell = ALL_CELLS[index]
+    dragValue = !paintSet.has(cell.cls)
+    last = cell
+    focusIndex = index
+    setMany([cell.cls], dragValue)
   }
 
   function move(event: PointerEvent) {
-    if (dragValue === null) return
+    if (dragValue === null || last === null) return
     const target = document.elementFromPoint(event.clientX, event.clientY)
-    const cls = target instanceof HTMLElement ? target.dataset.cls : undefined
-    if (cls) apply(cls, dragValue)
+    const index = target instanceof HTMLElement ? Number(target.dataset.index) : NaN
+    if (Number.isNaN(index)) return
+    const cell = ALL_CELLS[index]
+    setMany(between(last, cell), dragValue)
+    last = cell
   }
 
-  function keyToggle(event: MouseEvent, cls: string) {
-    // Keyboard activation (Enter/Space) arrives as a click with detail 0; pointer clicks were
-    // already handled on pointerdown.
-    if (onpaint && event.detail === 0) apply(cls, !paintSet.has(cls))
+  function click(event: MouseEvent, index: number) {
+    // Keyboard (detail 0) and touch taps toggle here; mouse presses were handled on pointerdown.
+    const touch = (event as PointerEvent).pointerType === 'touch'
+    if (onpaint && (event.detail === 0 || touch)) {
+      const cls = ALL_CELLS[index].cls
+      setMany([cls], !paintSet.has(cls))
+    }
+  }
+
+  function keydown(event: KeyboardEvent, index: number) {
+    const moves: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 13, ArrowUp: -13 }
+    const delta = moves[event.key]
+    if (delta === undefined) return
+    event.preventDefault()
+    const row = Math.floor(index / 13)
+    const next = index + delta
+    const sameRow = Math.floor(next / 13) === row
+    if (next < 0 || next >= 169 || (Math.abs(delta) === 1 && !sameRow)) return
+    focusIndex = next
+    cells[next]?.focus()
   }
 
   function background(row: number, col: number, cls: string): string {
     if (grid) return actionColor(grid[row][col])
-    return paintSet.has(cls) ? 'var(--act-raise)' : 'var(--act-fold)'
+    return paintSet.has(cls) ? actionColor(paintAction) : 'var(--act-fold)'
   }
 </script>
 
-<svelte:window onpointerup={() => (dragValue = null)} />
+<svelte:window onpointerup={() => ((dragValue = null), (last = null))} />
 
 <div
   class="grid"
@@ -71,22 +114,26 @@
   tabindex="-1"
   onpointermove={move}
 >
-  {#each ALL_CELLS as cell (cell.cls)}
+  {#each ALL_CELLS as cell, index (cell.cls)}
     {@const on = grid ? grid[cell.row][cell.col] !== 'Fold' : paintSet.has(cell.cls)}
     <button
+      bind:this={cells[index]}
       type="button"
       role="gridcell"
       data-cls={cell.cls}
+      data-index={index}
       class:on
       class:hl={cell.cls === highlight}
       class:missed={missed.has(cell.cls)}
       class:extra={extra.has(cell.cls)}
       aria-selected={on}
       aria-label={grid ? `${cell.cls}: ${grid[cell.row][cell.col]}` : cell.cls}
-      tabindex={onpaint ? 0 : -1}
+      tabindex={onpaint && index === focusIndex ? 0 : -1}
       style:background={background(cell.row, cell.col, cell.cls)}
-      onpointerdown={(e) => start(e, cell.cls)}
-      onclick={(e) => keyToggle(e, cell.cls)}
+      onpointerdown={(e) => start(e, index)}
+      onclick={(e) => click(e, index)}
+      onkeydown={(e) => keydown(e, index)}
+      onfocus={() => (focusIndex = index)}
     >
       {cell.cls}
     </button>
@@ -100,18 +147,21 @@
     gap: 2px;
     width: 100%;
     max-width: 34rem;
+    padding: 2px;
+    border-radius: 6px;
+    background: var(--grid-gap);
     user-select: none;
   }
   .paint {
-    touch-action: none;
+    touch-action: manipulation;
   }
   button {
     aspect-ratio: 1;
     padding: 0;
     border: none;
     border-radius: 3px;
-    font-size: clamp(0.45rem, 1.6vw, 0.72rem);
-    font-weight: 600;
+    font-size: clamp(0.56rem, 1.7vw, 0.74rem);
+    font-weight: 700;
     color: var(--act-fold-text);
     cursor: default;
     min-width: 0;
@@ -120,7 +170,7 @@
     cursor: pointer;
   }
   button.on {
-    color: #fff;
+    color: var(--act-on-text);
   }
   .hl {
     outline: 3px solid var(--text);
@@ -132,7 +182,11 @@
     box-shadow: inset 0 0 0 3px var(--info);
   }
   .extra {
-    box-shadow: inset 0 0 0 3px var(--bad);
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgb(0 0 0 / 0.35) 0 3px,
+      transparent 3px 7px
+    ) !important;
     text-decoration: line-through;
   }
 </style>

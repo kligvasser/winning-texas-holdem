@@ -45,6 +45,7 @@ describe('RangeGrid paint mode', () => {
     pointAt(cell('KK'))
     await fireEvent.pointerMove(screen.getByRole('grid'))
     expect(onpaint).toHaveBeenLastCalledWith(['AA', 'KK'])
+    await rerender({ painted: ['AA', 'KK'], onpaint })
     pointAt(cell('AA'))
     await fireEvent.pointerMove(screen.getByRole('grid'))
     expect(onpaint).toHaveBeenCalledTimes(2)
@@ -58,6 +59,61 @@ describe('RangeGrid paint mode', () => {
     await fireEvent.pointerUp(window)
     await fireEvent.pointerMove(screen.getByRole('grid'))
     expect(onpaint).toHaveBeenCalledTimes(2)
+  })
+
+  it('fills every cell along a fast drag', async () => {
+    const onpaint = vi.fn()
+    render(RangeGrid, { painted: [], onpaint })
+    await fireEvent.pointerDown(cell('AA'))
+    pointAt(cell('A2s'))
+    await fireEvent.pointerMove(screen.getByRole('grid'))
+    const painted = onpaint.mock.lastCall?.[0] as string[]
+    expect(painted).toEqual(expect.arrayContaining(['AKs', 'AQs', 'A7s', 'A3s', 'A2s']))
+    expect(painted).toHaveLength(13) // the whole top row, AA to A2s
+    await fireEvent.pointerUp(window)
+  })
+
+  it('toggles on tap for touch and leaves swipes to scroll', async () => {
+    const onpaint = vi.fn()
+    render(RangeGrid, { painted: [], onpaint })
+    await fireEvent.pointerDown(cell('QQ'), { pointerType: 'touch' })
+    expect(onpaint).not.toHaveBeenCalled()
+    const tap = new MouseEvent('click', { bubbles: true, detail: 1 })
+    Object.defineProperty(tap, 'pointerType', { value: 'touch' })
+    cell('QQ').dispatchEvent(tap)
+    expect(onpaint).toHaveBeenLastCalledWith(['QQ'])
+  })
+
+  it('moves focus with the arrow keys and stays inside the grid', async () => {
+    render(RangeGrid, { painted: [], onpaint: vi.fn() })
+    const aa = cell('AA')
+    expect(aa).toHaveAttribute('tabindex', '0')
+    expect(cell('KK')).toHaveAttribute('tabindex', '-1')
+    aa.focus()
+    await fireEvent.keyDown(aa, { key: 'ArrowRight' })
+    expect(cell('AKs')).toHaveFocus()
+    await fireEvent.keyDown(cell('AKs'), { key: 'ArrowDown' })
+    expect(cell('KK')).toHaveFocus()
+    expect(cell('KK')).toHaveAttribute('tabindex', '0')
+    await fireEvent.keyDown(cell('KK'), { key: 'ArrowUp' })
+    await fireEvent.keyDown(cell('AKs'), { key: 'ArrowLeft' })
+    expect(cell('AA')).toHaveFocus()
+    // Edges: no wrapping and no leaving the grid.
+    await fireEvent.keyDown(cell('AA'), { key: 'ArrowLeft' })
+    await fireEvent.keyDown(cell('AA'), { key: 'ArrowUp' })
+    expect(cell('AA')).toHaveFocus()
+    cell('A2s').focus()
+    await fireEvent.keyDown(cell('A2s'), { key: 'ArrowRight' })
+    expect(cell('A2s')).toHaveFocus()
+    cell('22').focus()
+    await fireEvent.keyDown(cell('22'), { key: 'ArrowDown' })
+    await fireEvent.keyDown(cell('22'), { key: 'Tab' })
+    expect(cell('22')).toHaveFocus()
+  })
+
+  it('paints in the colour of the chosen action', () => {
+    render(RangeGrid, { painted: ['AA'], onpaint: vi.fn(), paintAction: 'Call' })
+    expect(cell('AA').style.background).toBe('var(--act-call)')
   })
 
   it('erases when the drag starts on a painted cell', async () => {

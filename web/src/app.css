@@ -21,10 +21,12 @@
   --suit-hearts: #c62828;
   --suit-diamonds: #1565c0;
   --suit-clubs: #2e7d32;
-  --act-raise: #e2685a;
-  --act-call: #4f9d69;
-  --act-fold: #e4e7e4;
-  --act-fold-text: #7b857f;
+  --act-raise: #c4473a;
+  --act-call: #2c7a49;
+  --act-fold: #eceeec;
+  --act-fold-text: #4f5a54;
+  --act-on-text: #ffffff;
+  --grid-gap: #cfd5d0;
   font-family:
     system-ui,
     -apple-system,
@@ -52,8 +54,9 @@
     --card-bg: #f7f7f2;
     --act-raise: #c4554a;
     --act-call: #3d8656;
-    --act-fold: #242d28;
-    --act-fold-text: #7d8a83;
+    --act-fold: #27302b;
+    --act-fold-text: #a9b6ae;
+    --grid-gap: #151b18;
   }
 }
 

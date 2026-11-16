@@ -5,10 +5,11 @@ from __future__ import annotations
 import random
 from collections import OrderedDict
 from collections.abc import Callable, Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, tzinfo
 from pathlib import Path
 from typing import Annotated, Any
 
+import tzlocal
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +22,7 @@ from holdem.db import drill_stats, make_engine, record_attempt
 from holdem.drills.base import Question, grade
 from holdem.drills.registry import ALL_DRILLS, DRILLS
 from holdem.preflop import SPOTS, SPOTS_BY_ID, grade_paint
+from holdem.progress import activity
 from holdem.scheduler import card_summary, concept_progress, daily_plan, on_attempt
 from holdem.stats import preflop_leaks
 
@@ -74,10 +76,16 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+def local_zone() -> tzinfo:
+    """The machine's named time zone (daylight saving aware): days follow the user's calendar."""
+    return tzlocal.get_localzone()
+
+
 def create_app(
     engine: Engine | None = None,
     web_dist: Path = WEB_DIST,
     clock: Callable[[], datetime] = utc_now,
+    zone: tzinfo | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Winning Texas Hold'em")
     app.state.engine = engine or make_engine()
@@ -127,6 +135,10 @@ def create_app(
         review = on_attempt(session, question.drill, now)
         return {**result.public(), "review": review.public() if review else None}
 
+    @app.get("/api/activity")
+    def practice_activity(session: SessionDep) -> dict[str, Any]:
+        return activity(session, clock(), zone or local_zone()).public()
+
     @app.get("/api/today")
     def today(session: SessionDep) -> dict[str, Any]:
         return daily_plan(session, clock()).public()
@@ -162,7 +174,7 @@ def create_app(
             response=len(body.classes),
             expected=len(result.correct) + len(result.missed),
             correct=result.combos_wrong == 0,
-            error=float(result.combos_wrong),
+            error=None,  # combos wrong is never negative, so it is not an estimation bias
             elapsed_ms=None,
         )
         return result.public()

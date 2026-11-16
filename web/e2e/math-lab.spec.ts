@@ -16,7 +16,7 @@ test('a numeric drill is graded, explained and logged', async ({ page }) => {
   await input.press('Enter')
   await expect(page.getByRole('heading', { name: /Correct|Not quite/ })).toBeVisible()
   await expect(page.getByText(/final pot/)).toBeVisible()
-  await expect(page.getByLabel('Session score')).toHaveText(/\d \/ 1/)
+  await expect(page.getByLabel('Session score')).toHaveText(/\d\/1 correct/)
 
   await page.keyboard.press('Enter')
   await expect(page.getByLabel('Your answer')).toBeEmpty()

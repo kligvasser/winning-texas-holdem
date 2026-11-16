@@ -77,6 +77,26 @@ describe('AnswerInput', () => {
     expect(onsubmit).toHaveBeenCalledWith(25.5)
   })
 
+  it('explains invalid input instead of silently ignoring it', async () => {
+    const onsubmit = vi.fn()
+    const user = userEvent.setup()
+    render(AnswerInput, { question: numberQuestion, onsubmit })
+    const input = screen.getByLabelText('Your answer')
+    expect(screen.getByText('Enter to check · S to skip')).toBeInTheDocument()
+    await user.type(input, 'lots{Enter}')
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByText('Type a number, like 25, 25% or 1/3.')).toBeInTheDocument()
+    await user.clear(input)
+    await user.type(input, '1/4{Enter}')
+    expect(input).toHaveAttribute('aria-invalid', 'false')
+    expect(onsubmit).toHaveBeenCalledWith(25)
+  })
+
+  it('shows the choice shortcut hint', () => {
+    render(AnswerInput, { question: choiceQuestion, onsubmit: vi.fn() })
+    expect(screen.getByText('Press 1–3 to answer · S to skip')).toBeInTheDocument()
+  })
+
   it('does not submit while disabled or react to digit keys', async () => {
     const onsubmit = vi.fn()
     render(AnswerInput, { question: { ...numberQuestion, unit: '' }, disabled: true, onsubmit })
@@ -93,6 +113,44 @@ describe('AnswerInput', () => {
     render(AnswerInput, { question: numberQuestion, onsubmit })
     await fireEvent.keyDown(window, { key: '1' })
     expect(onsubmit).not.toHaveBeenCalled()
+  })
+
+  it('ignores digits with modifier keys, held keys or typed into an input', async () => {
+    const onsubmit = vi.fn()
+    render(AnswerInput, { question: choiceQuestion, onsubmit })
+    for (const init of [{ ctrlKey: true }, { metaKey: true }, { altKey: true }, { repeat: true }]) {
+      await fireEvent.keyDown(window, { key: '1', ...init })
+    }
+    const field = document.createElement('input')
+    document.body.appendChild(field)
+    await fireEvent.keyDown(field, { key: '1' })
+    field.remove()
+    expect(onsubmit).not.toHaveBeenCalled()
+  })
+
+  it('focuses the first choice and marks the answer after grading', () => {
+    render(AnswerInput, {
+      question: choiceQuestion,
+      onsubmit: vi.fn(),
+      answered: { response: 'Player 1', expected: 'Player 2' },
+    })
+    const [first, second, third] = screen.getAllByRole('button')
+    expect(first).toHaveFocus()
+    expect(first).toHaveClass('wrong')
+    expect(first).toHaveTextContent('✗')
+    expect(second).toHaveClass('right')
+    expect(second).toHaveTextContent('✓')
+    expect(third).not.toHaveClass('right')
+  })
+
+  it('marks a correct choice once', () => {
+    render(AnswerInput, {
+      question: choiceQuestion,
+      onsubmit: vi.fn(),
+      answered: { response: 'Player 2', expected: 'Player 2' },
+    })
+    expect(screen.getByRole('button', { name: /Player 2/ })).toHaveClass('right')
+    expect(screen.queryByText('✗')).toBeNull()
   })
 
   it('picks choices by click or number key', async () => {
@@ -129,10 +187,14 @@ describe('Feedback', () => {
     expect(onnext).toHaveBeenCalled()
   })
 
-  it('shows the error for a wrong numeric answer', () => {
-    render(Feedback, { result: wrongResult, unit: '%', onnext: vi.fn() })
+  it('shows the error, tolerance and closeness meter for a wrong numeric answer', () => {
+    render(Feedback, { result: { ...wrongResult, tolerance: 1.5 }, unit: '%', onnext: vi.fn() })
     expect(screen.getByRole('heading')).toHaveTextContent('Not quite')
     expect(screen.getByText('(+5 pts)')).toBeInTheDocument()
+    expect(screen.getByText('· answers within ±1.5 pts count')).toBeInTheDocument()
+    expect(
+      screen.getByRole('img', { name: 'Your estimate 30% against the answer 25%, accepted range ±1.5 points' }),
+    ).toBeInTheDocument()
     expect(screen.queryByText('Key cards')).toBeNull()
   })
 
@@ -145,7 +207,7 @@ describe('Feedback', () => {
   it('tells you when the drill comes back', () => {
     const due = new Date(Date.now() + 3 * 86_400_000).toISOString()
     render(Feedback, { result: { ...correctResult, review: { rating: 'good', due } }, onnext: vi.fn() })
-    expect(screen.getByText(/Review recorded \(good\)\. This drill comes back in 3 days\./)).toBeInTheDocument()
+    expect(screen.getByText("Locked in. You'll see this drill again in 3 days.")).toBeInTheDocument()
   })
 
   it('reveals the chart for preflop answers', () => {
@@ -165,8 +227,19 @@ describe('Feedback', () => {
     expect(screen.getByRole('grid')).toBeInTheDocument()
   })
 
-  it('shows unitless numeric errors', () => {
-    render(Feedback, { result: { ...wrongResult, error: -2 }, unit: 'outs', onnext: vi.fn() })
+  it('shows unitless numeric errors and exact-answer drills', () => {
+    render(Feedback, { result: { ...wrongResult, error: -2, tolerance: 0 }, unit: 'outs', onnext: vi.fn() })
     expect(screen.getByText('(-2)')).toBeInTheDocument()
+    expect(screen.getByText('· the exact number is needed')).toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: /Your estimate/ })).toBeNull()
+  })
+
+  it('words reviews by rating', () => {
+    const due = new Date(Date.now() + 60_000).toISOString()
+    const { unmount } = render(Feedback, { result: { ...wrongResult, review: { rating: 'again', due } }, onnext: vi.fn() })
+    expect(screen.getByText('This drill comes back for another go in 1 minute.')).toBeInTheDocument()
+    unmount()
+    render(Feedback, { result: { ...wrongResult, review: { rating: 'hard', due } }, onnext: vi.fn() })
+    expect(screen.getByText('Getting there. This drill comes back in 1 minute.')).toBeInTheDocument()
   })
 })

@@ -33,6 +33,7 @@ export interface Review {
 }
 
 export interface GradeResult {
+  tolerance?: number
   correct: boolean
   expected: number | string
   response: number | string
@@ -111,6 +112,17 @@ export interface Curriculum {
   materials: Lecture[]
 }
 
+export interface Activity {
+  today: string
+  answered_today: number
+  correct_today: number
+  practiced_today: boolean
+  streak: number
+  best_streak: number
+  total: number
+  history: { date: string; answers: number; correct: number }[]
+}
+
 export interface DrillStats {
   drill: string
   attempts: number
@@ -163,6 +175,7 @@ export const api = {
     }),
   stats: () => request<DrillStats[]>('/api/stats'),
   today: () => request<DailyPlan>('/api/today'),
+  activity: () => request<Activity>('/api/activity'),
   curriculum: () => request<Curriculum>('/api/curriculum'),
   spots: () => request<Spot[]>('/api/preflop/spots'),
   paint: (spot: string, action: string, classes: string[]) =>

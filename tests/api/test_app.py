@@ -191,3 +191,18 @@ def test_preflop_endpoints_and_leaks(client):
     accuracies = [leak["accuracy"] for leak in leaks]
     assert accuracies == sorted(accuracies)
     assert all(m["count"] >= 1 for leak in leaks for m in leak["missed_hands"])
+
+
+def test_activity_endpoint(engine, tmp_path):
+    now = datetime(2026, 11, 16, 12, tzinfo=UTC)
+    client = TestClient(create_app(engine, web_dist=tmp_path / "x", clock=lambda: now, zone=UTC))
+    question = ask(client)
+    client.post("/api/answers", json={"question_id": question["id"], "response": "25%"})
+    data = client.get("/api/activity").json()
+    assert data["answered_today"] == 1
+    assert data["streak"] == 1
+    assert data["today"] == "2026-11-16"
+
+
+def test_activity_defaults_to_the_local_zone(client):
+    assert client.get("/api/activity").json()["streak"] == 0

@@ -30,6 +30,8 @@ describe('api', () => {
     expect(fetch).toHaveBeenLastCalledWith('/api/today', expect.anything())
     await api.curriculum()
     expect(fetch).toHaveBeenLastCalledWith('/api/curriculum', expect.anything())
+    await api.activity()
+    expect(fetch).toHaveBeenLastCalledWith('/api/activity', expect.anything())
   })
 
   it('calls the preflop endpoints', async () => {
