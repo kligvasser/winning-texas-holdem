@@ -36,13 +36,16 @@
     Short, fast drills on the numbers behind every decision. Answers are computed by the engine,
     and every one comes with the working.
   </p>
-  <a class="mixed" href={href('math-lab', 'mixed')}>Start a mixed session</a>
+  <div class="starts">
+    <a class="mixed" href={href('math-lab', 'mixed')}>Start a mixed session</a>
+    <a class="mixed speed" href={href('speed', 'mixed')}>⚡ 60-second speed round</a>
+  </div>
   {#each groupByTier(drills) as [tier, tierDrills] (tier)}
     <h2>Tier {tier} · {TIER_NAMES[tier]}</h2>
     <div class="grid">
       {#each tierDrills as drill (drill.key)}
         <a class="tile" href={href('math-lab', drill.key)}>
-          <strong>{drill.title}</strong>
+          <strong>{drill.title}{#if drill.speed}<span class="bolt" title="Has a speed round"> ⚡</span>{/if}</strong>
           <span>{drill.description}</span>
         </a>
       {/each}
@@ -54,6 +57,15 @@
   .lead {
     color: var(--muted);
     max-width: 40rem;
+  }
+  .starts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .speed {
+    background: #f2b544;
+    color: #1d1505;
   }
   .mixed {
     display: inline-block;

@@ -26,6 +26,7 @@ class PreflopDrill(Drill):
         self.concept = concept
         self.tier = 2
         self.description = description
+        self.speed = True
         self.spots = tuple(s for s in SPOTS if s.kind == kind)
 
     def make_question(self, rng: random.Random) -> Question:

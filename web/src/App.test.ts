@@ -62,6 +62,10 @@ describe('App', () => {
     await visit('preflop')
     expect(await screen.findByRole('heading', { name: 'Preflop' })).toBeInTheDocument()
 
+    await visit('speed/mixed')
+    expect(await screen.findByRole('heading', { name: 'Speed round' })).toBeInTheDocument()
+    expect(document.title).toBe("Speed round · Hold'em Trainer")
+
     await visit('stats')
     expect(await screen.findByText(/No answers yet/)).toBeInTheDocument()
 

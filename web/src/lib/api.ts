@@ -4,6 +4,8 @@ export interface DrillMeta {
   concept: string
   tier: number
   description: string
+  /** Quick multiple choice: offered in 60-second speed rounds. */
+  speed?: boolean
 }
 
 export interface QuestionPayload {

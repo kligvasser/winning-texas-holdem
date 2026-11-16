@@ -39,6 +39,7 @@ class HandRankingDrill(Drill):
     concept = "hand-rankings"
     tier = 0
     description = "Seven cards: name the best five-card hand."
+    speed = True
 
     def make_question(self, rng: random.Random) -> Question:
         target = rng.choice(list(Category))
@@ -64,6 +65,7 @@ class ShowdownDrill(Drill):
     concept = "board-reading"
     tier = 0
     description = "Read the river board and pick the winner, or a split pot."
+    speed = True
 
     def make_question(self, rng: random.Random) -> Question:
         cards = deal(rng, 11)
@@ -105,6 +107,7 @@ class NutsDrill(Drill):
     concept = "board-reading"
     tier = 0
     description = "What is the best possible hand on this river board?"
+    speed = True
 
     def make_question(self, rng: random.Random) -> Question:
         board = deal(rng, 5)

@@ -3,6 +3,7 @@
   import Learn from './lib/pages/Learn.svelte'
   import MathLab from './lib/pages/MathLab.svelte'
   import Preflop from './lib/pages/Preflop.svelte'
+  import Speed from './lib/pages/Speed.svelte'
   import Stats from './lib/pages/Stats.svelte'
   import Today from './lib/pages/Today.svelte'
   import { href, router } from './lib/router.svelte'
@@ -21,6 +22,7 @@
     learn: 'Learn',
     'math-lab': 'Math Lab',
     preflop: 'Preflop',
+    speed: 'Speed round',
     stats: 'Progress',
   }
   $effect(() => {
@@ -55,6 +57,10 @@
   {:else if route.page === 'preflop'}
     {#key route.params.join('/')}
       <Preflop params={route.params} />
+    {/key}
+  {:else if route.page === 'speed'}
+    {#key route.params[0]}
+      <Speed selected={route.params[0]} />
     {/key}
   {:else if route.page === 'stats'}
     <Stats />

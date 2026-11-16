@@ -83,11 +83,14 @@ describe('Home', () => {
 
 describe('MathLab', () => {
   it('lists drills grouped by tier', async () => {
+    mocked.drills.mockResolvedValue(drills.map((d) => ({ ...d, speed: d.key === 'showdown' })))
     render(MathLab)
     expect(await screen.findByText('Tier 0 · Mechanics')).toBeInTheDocument()
     const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
     expect(headings).toEqual(['Tier 0 · Mechanics', 'Tier 1 · Core maths'])
     expect(screen.getByRole('link', { name: /Pot odds/ })).toHaveAttribute('href', '#/math-lab/pot-odds')
+    expect(screen.getByTitle('Has a speed round')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /speed round/ })).toHaveAttribute('href', '#/speed/mixed')
   })
 
   it('runs one drill', async () => {

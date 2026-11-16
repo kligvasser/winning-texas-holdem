@@ -34,6 +34,15 @@ def test_health_and_drill_list(client):
     assert client.get("/api/health").json() == {"status": "ok"}
     drills = client.get("/api/drills").json()
     assert {d["key"] for d in drills} >= {"outs", "pot-odds", "hand-ranking"}
+    speed = {d["key"] for d in drills if d["speed"]}
+    assert speed == {
+        "hand-ranking",
+        "showdown",
+        "nuts",
+        "preflop-open",
+        "preflop-defend",
+        "push-fold",
+    }
 
 
 def test_question_hides_answer_and_is_seeded(client):

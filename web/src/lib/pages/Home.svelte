@@ -72,6 +72,10 @@
     <strong>🧮 Math Lab</strong>
     <span>Outs, pot odds, equity, combos, flop odds, MDF and more.</span>
   </a>
+  <a class="tile" href={href('speed', 'mixed')}>
+    <strong>⚡ Speed round</strong>
+    <span>60 seconds, as many quick answers as you can. Beat your best.</span>
+  </a>
   <a class="tile" href={href('preflop')}>
     <strong>🃏 Preflop</strong>
     <span>Opening and defending charts, paint-the-range, and your weakest spots.</span>

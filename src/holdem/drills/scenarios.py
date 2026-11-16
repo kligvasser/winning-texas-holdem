@@ -316,6 +316,7 @@ class PushFoldDrill(Drill):
     concept = "icm"
     tier = 6
     description = "Short-stacked in the small blind against a stated calling range."
+    speed = True
 
     def make_question(self, rng: random.Random) -> Question:
         while True:

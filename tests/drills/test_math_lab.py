@@ -37,6 +37,7 @@ def test_registry_is_consistent():
         assert meta["title"]
         assert meta["description"]
         assert 0 <= meta["tier"] <= 7
+        assert isinstance(meta["speed"], bool)
 
 
 @pytest.mark.parametrize("drill", ALL_DRILLS, ids=lambda d: d.key)

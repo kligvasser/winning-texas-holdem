@@ -140,6 +140,7 @@ class Drill(ABC):
     concept: str
     tier: int
     description: str
+    speed: bool = False  # quick multiple choice: offered in 60-second speed rounds
 
     @abstractmethod
     def make_question(self, rng: random.Random) -> Question: ...
@@ -151,6 +152,7 @@ class Drill(ABC):
             "concept": self.concept,
             "tier": self.tier,
             "description": self.description,
+            "speed": self.speed,
         }
 
 
