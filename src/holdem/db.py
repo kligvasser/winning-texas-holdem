@@ -24,7 +24,7 @@ class Attempt(Base):
     __tablename__ = "attempts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(index=True)  # naive UTC
     drill: Mapped[str] = mapped_column(String(64), index=True)
     concept: Mapped[str] = mapped_column(String(64), index=True)
     question: Mapped[str]  # JSON: prompt and payload
@@ -33,6 +33,16 @@ class Attempt(Base):
     correct: Mapped[bool]
     error: Mapped[float | None]
     elapsed_ms: Mapped[int | None]
+
+
+class ReviewCard(Base):
+    """Spaced-repetition state for one drill, stored as py-fsrs JSON."""
+
+    __tablename__ = "review_cards"
+
+    drill: Mapped[str] = mapped_column(String(64), primary_key=True)
+    created_at: Mapped[datetime]  # naive UTC
+    card: Mapped[str]
 
 
 def database_url() -> str:
@@ -66,8 +76,10 @@ def record_attempt(
     correct: bool,
     error: float | None,
     elapsed_ms: int | None,
+    created_at: datetime | None = None,
 ) -> Attempt:
     attempt = Attempt(
+        created_at=(created_at or datetime.now(UTC)).astimezone(UTC).replace(tzinfo=None),
         drill=drill,
         concept=concept,
         question=json.dumps(question),

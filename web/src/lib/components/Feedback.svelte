@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GradeResult } from '../api'
-  import { signed } from '../format'
+  import { signed, until } from '../format'
   import CardRow from './CardRow.svelte'
 
   let {
@@ -29,6 +29,11 @@
       <li>{line}</li>
     {/each}
   </ul>
+  {#if result.review}
+    <p class="review">
+      Review recorded ({result.review.rating}). This drill comes back {until(result.review.due)}.
+    </p>
+  {/if}
   {#if result.highlight.length}
     <div class="key-cards"><CardRow label="Key cards" cards={result.highlight} /></div>
   {/if}
@@ -54,6 +59,10 @@
     color: var(--good);
   }
   .error {
+    color: var(--muted);
+  }
+  .review {
+    font-size: 0.9rem;
     color: var(--muted);
   }
   .key-cards {

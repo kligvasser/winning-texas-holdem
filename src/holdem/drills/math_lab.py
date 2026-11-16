@@ -435,7 +435,7 @@ COMBO_CLASSES = ("AA", "KK", "QQ", "JJ", "TT", "AKo", "AK", "AQ", "KQ", "AKs", "
 class CombosDrill(Drill):
     key = "combos"
     title = "Count combos"
-    concept = "combinatorics"
+    concept = "blockers"
     tier = 3
     description = "How many combos of a hand are possible given the cards you can see?"
 

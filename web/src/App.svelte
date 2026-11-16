@@ -1,11 +1,14 @@
 <script lang="ts">
   import Home from './lib/pages/Home.svelte'
+  import Learn from './lib/pages/Learn.svelte'
   import MathLab from './lib/pages/MathLab.svelte'
   import Stats from './lib/pages/Stats.svelte'
+  import Today from './lib/pages/Today.svelte'
   import { href, router } from './lib/router.svelte'
 
   const NAV = [
-    { page: 'home', label: 'Home' },
+    { page: 'today', label: 'Today' },
+    { page: 'learn', label: 'Learn' },
     { page: 'math-lab', label: 'Math Lab' },
     { page: 'stats', label: 'Progress' },
   ]
@@ -26,6 +29,12 @@
 <main>
   {#if route.page === 'home'}
     <Home />
+  {:else if route.page === 'today'}
+    <Today />
+  {:else if route.page === 'learn'}
+    {#key route.params[0]}
+      <Learn selected={route.params[0]} />
+    {/key}
   {:else if route.page === 'math-lab'}
     {#key route.params[0]}
       <MathLab selected={route.params[0]} />

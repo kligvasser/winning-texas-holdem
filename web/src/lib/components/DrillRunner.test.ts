@@ -57,6 +57,24 @@ describe('DrillRunner', () => {
     expect(await screen.findByLabelText('Your answer')).toBeInTheDocument()
   })
 
+  it('runs a fixed queue to the end', async () => {
+    question.mockResolvedValueOnce(numberQuestion).mockResolvedValueOnce(choiceQuestion)
+    answer.mockResolvedValueOnce(correctResult).mockResolvedValueOnce(wrongResult)
+    const user = userEvent.setup()
+    render(DrillRunner, { drills, queue: ['pot-odds', 'showdown'] })
+    const bar = screen.getByRole('progressbar', { name: 'Session progress' })
+    expect(bar).toHaveAttribute('aria-valuemax', '2')
+    await user.type(await screen.findByLabelText('Your answer'), '25{Enter}')
+    await fireEvent.click(await screen.findByRole('button', { name: /Next/ }))
+    expect(question).toHaveBeenLastCalledWith('showdown')
+    await fireEvent.click(await screen.findByRole('button', { name: /Player 1/ }))
+    expect(bar).toHaveAttribute('aria-valuenow', '2')
+    await fireEvent.click(await screen.findByRole('button', { name: /Next/ }))
+    expect(await screen.findByRole('heading', { name: 'Session complete' })).toBeInTheDocument()
+    expect(screen.getByText(/1 of 2 correct/)).toBeInTheDocument()
+    expect(question).toHaveBeenCalledTimes(2)
+  })
+
   it('reports answer failures', async () => {
     question.mockResolvedValue(choiceQuestion)
     answer.mockRejectedValue(new Error('question not found'))

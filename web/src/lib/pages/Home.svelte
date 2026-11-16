@@ -12,13 +12,17 @@
     <h1>Winning Texas Hold'em</h1>
     <p>
       Practice the maths until it is automatic, then the decisions. Built around MIT 15.S50, with
-      every answer computed and explained.
+      every answer computed and explained, and reviews scheduled for when you are about to forget.
     </p>
-    <a class="cta" href={href('math-lab', 'mixed')}>Start a mixed session</a>
+    <a class="cta" href={href('today')}>Today's session</a>
   </div>
 </section>
 
 <div class="grid">
+  <a class="tile" href={href('learn')}>
+    <strong>Learn</strong>
+    <span>The curriculum, concept by concept, with lecture links and your mastery.</span>
+  </a>
   <a class="tile" href={href('math-lab')}>
     <strong>Math Lab</strong>
     <span>Outs, pot odds, equity, combos, flop odds, MDF and more.</span>

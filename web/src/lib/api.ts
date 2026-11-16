@@ -27,6 +27,11 @@ export interface Question {
   unit: string
 }
 
+export interface Review {
+  rating: 'again' | 'hard' | 'good' | 'easy'
+  due: string
+}
+
 export interface GradeResult {
   correct: boolean
   expected: number | string
@@ -34,6 +39,45 @@ export interface GradeResult {
   error: number | null
   explanation: string[]
   highlight: string[]
+  review?: Review | null
+}
+
+export interface DailyPlan {
+  due: string[]
+  new: string[]
+  extra: string[]
+  queue: string[]
+}
+
+export interface Lecture {
+  label: string
+  url: string
+}
+
+export interface Concept {
+  id: string
+  title: string
+  tier: number
+  summary: string
+  points: string[]
+  prerequisites: string[]
+  lectures: Lecture[]
+  drills: string[]
+  attempts: number
+  mastery: number
+  status: 'new' | 'learning' | 'mastered'
+}
+
+export interface CardState {
+  due: string | null
+  is_due: boolean
+  recall: number | null
+}
+
+export interface Curriculum {
+  concepts: Concept[]
+  cards: Record<string, CardState>
+  materials: Lecture[]
 }
 
 export interface DrillStats {
@@ -87,4 +131,6 @@ export const api = {
       body: JSON.stringify({ question_id: questionId, response, elapsed_ms: elapsedMs }),
     }),
   stats: () => request<DrillStats[]>('/api/stats'),
+  today: () => request<DailyPlan>('/api/today'),
+  curriculum: () => request<Curriculum>('/api/curriculum'),
 }

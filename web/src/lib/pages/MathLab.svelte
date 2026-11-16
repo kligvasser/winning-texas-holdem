@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api, type DrillMeta } from '../api'
   import DrillRunner from '../components/DrillRunner.svelte'
-  import { TIER_NAMES } from '../format'
+  import { groupByTier, TIER_NAMES } from '../format'
   import { href } from '../router.svelte'
 
   let { selected = undefined }: { selected?: string } = $props()
@@ -16,11 +16,6 @@
     )
   })
 
-  const tiers = $derived(
-    [...new Set(drills.map((d) => d.tier))]
-      .sort((a, b) => a - b)
-      .map((tier) => ({ tier, drills: drills.filter((d) => d.tier === tier) })),
-  )
   const active = $derived(
     selected === 'mixed' ? drills : drills.filter((d) => d.key === selected),
   )
@@ -42,10 +37,10 @@
     and every one comes with the working.
   </p>
   <a class="mixed" href={href('math-lab', 'mixed')}>Start a mixed session</a>
-  {#each tiers as group (group.tier)}
-    <h2>Tier {group.tier} · {TIER_NAMES[group.tier]}</h2>
+  {#each groupByTier(drills) as [tier, tierDrills] (tier)}
+    <h2>Tier {tier} · {TIER_NAMES[tier]}</h2>
     <div class="grid">
-      {#each group.drills as drill (drill.key)}
+      {#each tierDrills as drill (drill.key)}
         <a class="tile" href={href('math-lab', drill.key)}>
           <strong>{drill.title}</strong>
           <span>{drill.description}</span>

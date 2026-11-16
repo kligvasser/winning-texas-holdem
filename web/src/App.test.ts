@@ -8,6 +8,8 @@ vi.mock('./lib/api', () => ({
   api: {
     drills: vi.fn(() => Promise.resolve(drills)),
     stats: vi.fn(() => Promise.resolve([])),
+    today: vi.fn(() => Promise.resolve({ due: [], new: [], extra: [], queue: [] })),
+    curriculum: vi.fn(() => Promise.resolve({ concepts: [], cards: {}, materials: [] })),
     question: vi.fn(() => new Promise(() => {})),
     answer: vi.fn(),
   },
@@ -28,11 +30,17 @@ describe('App', () => {
     render(App)
     await visit('home')
     expect(screen.getByRole('heading', { name: "Winning Texas Hold'em" })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page')
+
+    await visit('today')
+    expect(await screen.findByText(/Nothing is due/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Today' })).toHaveAttribute('aria-current', 'page')
+
+    await visit('learn')
+    expect(await screen.findByRole('heading', { name: 'Curriculum' })).toBeInTheDocument()
 
     await visit('math-lab')
     expect(await screen.findByRole('heading', { name: 'Math Lab' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current')
+    expect(screen.getByRole('link', { name: 'Today' })).not.toHaveAttribute('aria-current')
 
     await visit('math-lab/pot-odds')
     expect(await screen.findByText('Dealing…')).toBeInTheDocument()

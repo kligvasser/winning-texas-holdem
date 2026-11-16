@@ -137,6 +137,12 @@ describe('Feedback', () => {
     expect(screen.queryByText(/\(/)).toBeNull()
   })
 
+  it('tells you when the drill comes back', () => {
+    const due = new Date(Date.now() + 3 * 86_400_000).toISOString()
+    render(Feedback, { result: { ...correctResult, review: { rating: 'good', due } }, onnext: vi.fn() })
+    expect(screen.getByText(/Review recorded \(good\)\. This drill comes back in 3 days\./)).toBeInTheDocument()
+  })
+
   it('shows unitless numeric errors', () => {
     render(Feedback, { result: { ...wrongResult, error: -2 }, unit: 'outs', onnext: vi.fn() })
     expect(screen.getByText('(-2)')).toBeInTheDocument()

@@ -1,4 +1,4 @@
-import type { DrillMeta, DrillStats, GradeResult, Question } from '../lib/api'
+import type { Concept, Curriculum, DailyPlan, DrillMeta, DrillStats, GradeResult, Question } from '../lib/api'
 
 export const drills: DrillMeta[] = [
   { key: 'pot-odds', title: 'Pot odds', concept: 'pot-odds', tier: 1, description: 'Need?' },
@@ -50,3 +50,35 @@ export const stats: DrillStats[] = [
   { drill: 'showdown', attempts: 2, correct: 1, accuracy: 0.5, mean_abs_error: null, bias: null, mean_ms: null },
   { drill: 'retired', attempts: 2, correct: 2, accuracy: 1, mean_abs_error: 1, bias: -1, mean_ms: 900 },
 ]
+
+export const plan: DailyPlan = {
+  due: ['pot-odds'],
+  new: ['showdown'],
+  extra: [],
+  queue: ['pot-odds', 'showdown'],
+}
+
+const concept = (over: Partial<Concept>): Concept => ({
+  id: 'x',
+  title: 'X',
+  tier: 0,
+  summary: 'Summary',
+  points: ['A point'],
+  prerequisites: [],
+  lectures: [{ label: '2016 L1 · Overview', url: 'https://ocw.mit.edu/courses/15-s50-x/' }],
+  drills: [],
+  attempts: 0,
+  mastery: 0.5,
+  status: 'new',
+  ...over,
+})
+
+export const curriculum: Curriculum = {
+  concepts: [
+    concept({ id: 'board-reading', title: 'Reading the board', drills: ['showdown'], attempts: 12, mastery: 0.9, status: 'mastered' }),
+    concept({ id: 'pot-odds', title: 'Pot odds and EV', tier: 1, drills: ['pot-odds', 'unlisted'], prerequisites: ['board-reading', 'ghost'], attempts: 3, mastery: 0.6, status: 'learning' }),
+    concept({ id: 'icm', title: 'Push/fold and ICM', tier: 6 }),
+  ],
+  cards: {},
+  materials: [{ label: '2016 lecture slides', url: 'https://ocw.mit.edu/slides' }],
+}

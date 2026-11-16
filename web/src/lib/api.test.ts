@@ -24,6 +24,14 @@ describe('api', () => {
     expect(fetch).toHaveBeenLastCalledWith('/api/stats', expect.anything())
   })
 
+  it('fetches the daily plan and curriculum', async () => {
+    const fetch = mockFetch({})
+    await api.today()
+    expect(fetch).toHaveBeenLastCalledWith('/api/today', expect.anything())
+    await api.curriculum()
+    expect(fetch).toHaveBeenLastCalledWith('/api/curriculum', expect.anything())
+  })
+
   it('asks for a question with and without a seed', async () => {
     const fetch = mockFetch({ id: 'q' })
     await api.question('pot odds', 3)

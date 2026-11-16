@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -100,6 +102,32 @@ def test_answer_errors(client):
     assert ok.status_code == 200
     again = client.post("/api/answers", json={"question_id": question["id"], "response": 10})
     assert again.status_code == 404
+
+
+def test_answers_drive_reviews_and_today(engine, tmp_path):
+    now = datetime(2026, 11, 16, 12, tzinfo=UTC)
+    client = TestClient(create_app(engine, web_dist=tmp_path / "missing", clock=lambda: now))
+    today = client.get("/api/today").json()
+    assert today["new"] == ["hand-ranking", "showdown"]
+    assert today["queue"][:2] == ["hand-ranking", "showdown"]
+
+    reviews = []
+    for seed in range(3):
+        question = ask(client, key="hand-ranking", seed=seed)
+        expected = stored_answer(client, question["id"])
+        body = {"question_id": question["id"], "response": expected, "elapsed_ms": 2000}
+        reviews.append(client.post("/api/answers", json=body).json()["review"])
+    assert reviews[:2] == [None, None]
+    assert reviews[2]["rating"] == "good"
+
+    curriculum = client.get("/api/curriculum").json()
+    concepts = {c["id"]: c for c in curriculum["concepts"]}
+    assert concepts["hand-rankings"]["attempts"] == 3
+    assert concepts["hand-rankings"]["status"] == "learning"
+    assert concepts["pot-odds"]["status"] == "new"
+    assert concepts["outs"]["lectures"]
+    assert curriculum["cards"]["hand-ranking"]["is_due"] is False
+    assert curriculum["materials"]
 
 
 def test_question_store_capacity():

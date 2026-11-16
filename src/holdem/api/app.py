@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import random
 from collections import OrderedDict
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -15,9 +16,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from holdem.curriculum import CONCEPTS, COURSE_MATERIALS
 from holdem.db import drill_stats, make_engine, record_attempt
 from holdem.drills.base import Question, grade
 from holdem.drills.math_lab import ALL_DRILLS, DRILLS
+from holdem.scheduler import card_summary, concept_progress, daily_plan, on_attempt
 
 WEB_DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
 
@@ -59,7 +62,15 @@ def get_session(request: Request) -> Iterator[Session]:
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
-def create_app(engine: Engine | None = None, web_dist: Path = WEB_DIST) -> FastAPI:
+def utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def create_app(
+    engine: Engine | None = None,
+    web_dist: Path = WEB_DIST,
+    clock: Callable[[], datetime] = utc_now,
+) -> FastAPI:
     app = FastAPI(title="Winning Texas Hold'em")
     app.state.engine = engine or make_engine()
     app.state.questions = QuestionStore()
@@ -92,8 +103,10 @@ def create_app(engine: Engine | None = None, web_dist: Path = WEB_DIST) -> FastA
         except ValueError as exc:
             request.app.state.questions.add(question)  # let the user try again
             raise HTTPException(400, str(exc)) from exc
+        now = clock()
         record_attempt(
             session,
+            created_at=now,
             drill=question.drill,
             concept=question.concept,
             question={"prompt": question.prompt, "payload": question.payload},
@@ -103,7 +116,21 @@ def create_app(engine: Engine | None = None, web_dist: Path = WEB_DIST) -> FastA
             error=result.error,
             elapsed_ms=body.elapsed_ms,
         )
-        return result.public()
+        review = on_attempt(session, question.drill, now)
+        return {**result.public(), "review": review.public() if review else None}
+
+    @app.get("/api/today")
+    def today(session: SessionDep) -> dict[str, Any]:
+        return daily_plan(session, clock()).public()
+
+    @app.get("/api/curriculum")
+    def curriculum(session: SessionDep) -> dict[str, Any]:
+        progress = concept_progress(session)
+        return {
+            "concepts": [{**c.public(), **progress[c.id].public()} for c in CONCEPTS],
+            "cards": card_summary(session, clock()),
+            "materials": [{"label": m.label, "url": m.url} for m in COURSE_MATERIALS],
+        }
 
     @app.get("/api/stats")
     def stats(session: SessionDep) -> list[dict[str, Any]]:
