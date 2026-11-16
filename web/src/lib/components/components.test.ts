@@ -100,6 +100,11 @@ describe('AnswerInput', () => {
     expect(onsubmit).toHaveBeenCalledWith(25)
   })
 
+  it('drops the skip hint where skipping is not offered', () => {
+    render(AnswerInput, { question: numberQuestion, onsubmit: vi.fn(), skippable: false })
+    expect(screen.getByText('Enter to check')).toBeInTheDocument()
+  })
+
   it('shows the choice shortcut hint', () => {
     render(AnswerInput, { question: choiceQuestion, onsubmit: vi.fn() })
     expect(screen.getByText('Press 1–3 to answer · S to skip')).toBeInTheDocument()

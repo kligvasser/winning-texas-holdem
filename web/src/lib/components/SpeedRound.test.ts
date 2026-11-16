@@ -37,6 +37,7 @@ describe('SpeedRound', () => {
     expect(screen.getByText('Personal best:', { exact: false })).toHaveTextContent('Personal best: 0')
     await fireEvent.click(screen.getByRole('button', { name: /Start/ }))
     expect(screen.getByLabelText('Seconds left')).toHaveTextContent('10s')
+    expect(await screen.findByText('Press 1–3 to answer')).toBeInTheDocument()
     await choose(/Player 1/)
     await waitFor(() => expect(screen.getByLabelText('Speed score')).toHaveTextContent('⚡ 1'))
     await choose(/Player 1/)

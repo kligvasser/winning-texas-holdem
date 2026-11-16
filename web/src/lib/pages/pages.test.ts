@@ -39,6 +39,7 @@ describe('Home', () => {
     expect(screen.getByRole('link', { name: /Math Lab/ })).toHaveAttribute('href', '#/math-lab')
     expect(screen.getByRole('link', { name: /Learn/ })).toHaveAttribute('href', '#/learn')
     expect(screen.getByRole('link', { name: /Preflop/ })).toHaveAttribute('href', '#/preflop')
+    expect(screen.getByRole('link', { name: /Play/ })).toHaveAttribute('href', '#/play')
     expect(screen.getByRole('link', { name: "Today's session" })).toHaveAttribute('href', '#/today')
     expect(screen.getByText('Welcome! Start with a short session.')).toBeInTheDocument()
   })

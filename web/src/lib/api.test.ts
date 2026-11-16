@@ -47,6 +47,26 @@ describe('api', () => {
     )
   })
 
+  it('calls the play endpoints', async () => {
+    const fetch = mockFetch({})
+    await api.styles()
+    expect(fetch).toHaveBeenLastCalledWith('/api/play/styles', expect.anything())
+    await api.play('nit')
+    expect(fetch).toHaveBeenLastCalledWith('/api/play', expect.objectContaining({ body: '{"style":"nit"}' }))
+    await api.act('s', 'call')
+    expect(fetch).toHaveBeenLastCalledWith('/api/play/s/act', expect.objectContaining({ body: '{"kind":"call"}' }))
+    await api.act('s', 'raise', 8)
+    expect(fetch).toHaveBeenLastCalledWith('/api/play/s/act', expect.objectContaining({ body: '{"kind":"raise","to":8}' }))
+    await api.nextHand('s')
+    expect(fetch).toHaveBeenLastCalledWith('/api/play/s/next', expect.objectContaining({ method: 'POST' }))
+    await api.coach('s')
+    expect(fetch).toHaveBeenLastCalledWith('/api/play/s/coach', expect.anything())
+    await api.hands()
+    expect(fetch).toHaveBeenLastCalledWith('/api/hands', expect.anything())
+    await api.hand(3)
+    expect(fetch).toHaveBeenLastCalledWith('/api/hands/3', expect.anything())
+  })
+
   it('asks for a question with and without a seed', async () => {
     const fetch = mockFetch({ id: 'q' })
     await api.question('pot odds', 3)

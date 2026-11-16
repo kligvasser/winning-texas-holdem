@@ -2,7 +2,9 @@
   import Home from './lib/pages/Home.svelte'
   import Learn from './lib/pages/Learn.svelte'
   import MathLab from './lib/pages/MathLab.svelte'
+  import Play from './lib/pages/Play.svelte'
   import Preflop from './lib/pages/Preflop.svelte'
+  import Review from './lib/pages/Review.svelte'
   import Speed from './lib/pages/Speed.svelte'
   import Stats from './lib/pages/Stats.svelte'
   import Today from './lib/pages/Today.svelte'
@@ -13,6 +15,7 @@
     { page: 'learn', label: 'Learn' },
     { page: 'math-lab', label: 'Math Lab' },
     { page: 'preflop', label: 'Preflop' },
+    { page: 'play', label: 'Play' },
     { page: 'stats', label: 'Progress' },
   ]
   const route = $derived(router.route)
@@ -23,6 +26,8 @@
     'math-lab': 'Math Lab',
     preflop: 'Preflop',
     speed: 'Speed round',
+    play: 'Play',
+    review: 'Review',
     stats: 'Progress',
   }
   $effect(() => {
@@ -57,6 +62,12 @@
   {:else if route.page === 'preflop'}
     {#key route.params.join('/')}
       <Preflop params={route.params} />
+    {/key}
+  {:else if route.page === 'play'}
+    <Play />
+  {:else if route.page === 'review'}
+    {#key route.params[0]}
+      <Review selected={route.params[0]} />
     {/key}
   {:else if route.page === 'speed'}
     {#key route.params[0]}

@@ -80,6 +80,10 @@
     <strong>🃏 Preflop</strong>
     <span>Opening and defending charts, paint-the-range, and your weakest spots.</span>
   </a>
+  <a class="tile" href={href('play')}>
+    <strong>🤖 Play</strong>
+    <span>Heads-up against a nit, a maniac or a calling station; every decision reviewed.</span>
+  </a>
   <a class="tile" href={href('stats')}>
     <strong>📈 Progress</strong>
     <span>Activity, accuracy, speed and estimation bias for each drill.</span>

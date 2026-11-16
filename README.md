@@ -66,15 +66,41 @@ seeded Monte Carlo otherwise), and every graded answer comes with the working, n
 | 1 · Core maths | Count your outs · Outs to percent · Pot odds · Call or fold · Preflop all-in equity · Flop equity · Starting-hand odds · Flop odds |
 | 2 · Preflop | Open or fold · Facing a raise · Paint the range |
 | 3 · Ranges | Equity vs a range · How often does the range hit? · Implied odds · Count combos (blockers) · Stack-to-pot ratio |
-| 4 · Postflop | Bluff EV (pure and semi-bluffs) · **Hand story**: one hand played street by street |
+| 4 · Postflop | Bluff EV (pure and semi-bluffs) · **Hand stories**: the flush draw, set-mining, top pair under pressure, an overcard in a 3-bet pot |
 | 5 · Game theory | MDF, alpha and bluff ratios · Bluff-catching |
 | 6 · Tournaments | Shove or fold (push/fold EV) · ICM: what are your chips worth? |
 
 <img src="docs/images/hand-story.png" alt="Hand story, turn step: flush draw facing a lead, with fact chips for the street and villain's range, and a pot-odds verdict" width="880">
 
-**Hand story** plays one hand from the button: open, face a turn lead with a flush draw against
-the big blind's leading range, then decide whether to bluff the missed river. Each street is graded,
-and at the end you see the hand the big blind actually held.
+**Hand stories** play one hand street by street. Each decision is graded by exact equity against
+the villain's stated range, and at the end you see the hand the villain actually held. Stories are
+data, so you can write your own (see [Writing a hand story](#writing-a-hand-story)).
+
+### Play against bots, then review every decision
+
+Heads-up at 100bb against an opponent with a clear style: **nit**, **TAG**, **LAG**, **calling
+station** or **maniac**. Turn on the coach to see the price and your equity against the bot's likely
+range. After each hand every call and fold you made is graded against that range and costed in big
+blinds; the Review page lists your hands worst mistake first, with your VPIP, PFR and bb/100.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/play-table.png" alt="Heads-up table against a calling station with the coach showing the price and equity"></td>
+    <td width="50%"><img src="docs/images/play-review.png" alt="Finished hand with each decision graded as good, small leak or mistake"></td>
+  </tr>
+  <tr>
+    <td><b>The table.</b> Bet presets (½ pot, ⅔, pot, all-in) and keyboard play: F fold, C check or call, 1–5 sizes, N next hand.</td>
+    <td><b>The review.</b> Graded by equity against the bot's preflop range, so treat it as an estimate: later betting is not modelled.</td>
+  </tr>
+</table>
+
+### Speed rounds
+
+<img src="docs/images/speed-round.png" alt="Speed round: countdown bar, score and an open-or-fold question" width="880">
+
+Sixty seconds on the quick multiple-choice drills (name the hand, who wins, find the nuts, open or
+fold, facing a raise, shove or fold). Correct answers move on instantly; your personal best is kept
+per round.
 
 ### Math Lab: the numbers behind every decision
 
@@ -239,6 +265,56 @@ flowchart LR
   pot_odds --> icm
 ```
 
+## Writing a hand story
+
+Stories live in [`src/holdem/data/stories`](src/holdem/data/stories) as TOML and need no code. A
+story names the hero's hands, the villain's range from a baseline chart, and a list of steps:
+
+```toml
+key = "story-set-mining"
+title = "Hand story: set-mining"
+description = "Defend the big blind with a small pair, flop a set, and get paid."
+pot = 5.5                                     # pot after the preflop action, in bb
+
+[hero]
+classes = "22-99"
+
+[villain]
+name = "BTN"
+spot = "btn-open"                             # a baseline chart and the action in it
+action = "Raise"
+
+[[steps]]
+street = "preflop"
+decision = "chart"                            # graded by the chart
+spot = "bb-vs-btn"
+expect = "Call"                               # only hero hands the chart plays this way
+prompt = "The button opens. You are in the big blind with {hand}. 3-bet, call or fold?"
+
+[[steps]]
+street = "flop"
+hero = ["set"]                                # conditions on the hero's hand (all must hold)
+board = ["unpaired"]                          # conditions on the new cards: unpaired, blank
+decision = "call"                             # call, catch, bluff or value
+size = [0.33, 0.5]                            # bet as a share of the pot, one picked at random
+prompt = "Flop {flop}: BTN bets {bet} into {pot}. Call or fold?"
+lesson = "With a set you are far ahead; calling keeps the bluffs in."
+```
+
+| Decision | You choose | Graded by |
+|---|---|---|
+| `chart` | the chart's actions | the baseline preflop chart |
+| `call` | call or fold | equity against the villain's current range vs the price |
+| `catch` | call or fold | the same, against the hands listed in `bets` |
+| `bluff` | bet or check | share of the range in `folds` vs the bluff's break-even |
+| `value` | bet or check | equity against the hands in `calls`: bet when above 50% |
+
+Conditions: `set`, `overpair`, `underpair_to_top`, `top_pair`, `top_pair_plus`, `two_pair_plus`,
+`pair_plus`, `one_pair`, `weak_pair`, `flush_draw`, `oesd`, `draw`, `nothing`; prefix `not_` to
+negate. A step's `villain` list narrows the villain's range (a hand stays if *any* condition holds).
+Placeholders: `{hand}`, `{villain}`, `{flop}`, `{turn}`, `{river}`, `{pot}`, `{bet}`, `{setup_bet}`.
+Tests deal every story many times and check that each step is graded and every placeholder filled.
+
 ## Architecture
 
 All poker logic lives in a pure Python package with no web imports; the browser only renders and
@@ -327,10 +403,12 @@ npm run screenshots                # regenerate the images in this README
 - [x] **Scheduler and curriculum:** FSRS reviews, daily session, prerequisites, Learn pages
 - [x] **Preflop trainer:** baseline charts, edge-weighted spot drills, paint-the-range, leak report
 - [x] **Ranges, fold equity, tournaments:** equity vs ranges, range hits, implied odds, bluff EV, bluff-catching, push/fold EV, ICM, and a street-by-street hand story
-- [ ] **Play and review:** 6-max table against bot archetypes (nit, TAG, LAG, calling station, maniac), hand histories, review sorted by biggest mistake
+- [x] **Hand stories as data:** a story engine and four stories (flush draw, set-mining, top pair under pressure, 3-bet pot)
+- [x] **Speed rounds:** 60-second keyboard sprints on choice drills, with personal bests
+- [x] **Play and review (heads-up):** five bot styles, a live coach, every call and fold graded and costed, hand history with VPIP/PFR/bb/100
+- [ ] **6-max table:** more seats, side pots and position play against a mix of bot styles
 - [ ] **Hand reading:** narrow a bot's range street by street, scored against the bot's true range
-- [ ] **More hand stories:** set-mining, top pair facing aggression, 3-bet pots, multiway; written as data so new stories need no code
-- [ ] **Speed rounds:** 60-second keyboard sprints on choice drills, with personal bests
+- [ ] **Postflop-aware review:** narrow the bot's range by its postflop actions, and grade bets and raises
 - [ ] **Toy games:** the MIT problem-set betting game and the AKQ game, playable against exploitable and optimal opponents
 - [ ] **Push/fold Nash charts:** solve heads-up shove/call ranges locally and drill against them
 - [ ] **Solver reference (optional):** offline heads-up flop solutions for postflop grading

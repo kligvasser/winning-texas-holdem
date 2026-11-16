@@ -23,6 +23,10 @@ vi.mock('./lib/api', () => ({
     ),
     curriculum: vi.fn(() => Promise.resolve({ concepts: [], cards: {}, materials: [] })),
     spots: vi.fn(() => Promise.resolve([])),
+    styles: vi.fn(() => Promise.resolve([])),
+    hands: vi.fn(() =>
+      Promise.resolve({ hands: [], stats: { hands: 0, net_bb: 0, bb_per_100: null, vpip: null, pfr: null } }),
+    ),
     leaks: vi.fn(() => Promise.resolve([])),
     question: vi.fn(() => new Promise(() => {})),
     answer: vi.fn(),
@@ -65,6 +69,12 @@ describe('App', () => {
     await visit('speed/mixed')
     expect(await screen.findByRole('heading', { name: 'Speed round' })).toBeInTheDocument()
     expect(document.title).toBe("Speed round · Hold'em Trainer")
+
+    await visit('play')
+    expect(await screen.findByRole('heading', { name: 'Play' })).toBeInTheDocument()
+
+    await visit('review')
+    expect(await screen.findByRole('heading', { name: 'Review' })).toBeInTheDocument()
 
     await visit('stats')
     expect(await screen.findByText(/No answers yet/)).toBeInTheDocument()

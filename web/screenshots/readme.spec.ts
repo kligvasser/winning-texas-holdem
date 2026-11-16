@@ -97,6 +97,27 @@ test('readme screenshots', async ({ page }) => {
   await graded(page)
   await page.screenshot({ animations: 'disabled', path: `${OUT}/hand-story.png`, fullPage: true })
 
+  await page.goto('/#/speed/preflop-open')
+  await page.getByRole('button', { name: /Start/ }).click()
+  await expect(page.locator('.choices button:enabled').first()).toBeVisible()
+  await page.screenshot({ animations: 'disabled', path: `${OUT}/speed-round.png` })
+
+  await page.goto('/#/play')
+  await page.getByRole('button', { name: /Calling station/ }).click()
+  await expect(page.getByRole('region', { name: 'Poker table' })).toBeVisible()
+  await page.getByRole('checkbox', { name: 'Coach' }).check()
+  await expect(page.getByLabel('Coach', { exact: true }).and(page.locator('p'))).toBeVisible()
+  await page.screenshot({ animations: 'disabled', path: `${OUT}/play-table.png`, fullPage: true })
+  const result = page.getByRole('region', { name: 'Hand result' })
+  for (let i = 0; i < 15 && !(await result.isVisible()); i += 1) {
+    const ready = page.locator('[aria-label="Your action"] button:enabled')
+    await expect.poll(async () => (await result.isVisible()) || (await ready.count()) > 0).toBe(true)
+    if (await result.isVisible()) break
+    await page.getByRole('button', { name: /^(Call|Check)/ }).first().click()
+  }
+  await expect(result).toBeVisible()
+  await page.screenshot({ animations: 'disabled', path: `${OUT}/play-review.png`, fullPage: true })
+
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto('/#/math-lab/flop-equity')
   await page.getByLabel('Your answer').fill('40')

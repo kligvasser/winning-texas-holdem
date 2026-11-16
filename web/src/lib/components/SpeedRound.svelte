@@ -140,6 +140,7 @@
         disabled={missed !== null}
         onsubmit={(v) => choose(question!, v)}
         answered={missed ?? undefined}
+        skippable={false}
       />
       {#if missed}<p class="miss" role="status">Answer: {missed.expected}</p>{/if}
     {:else}

@@ -129,6 +129,103 @@ export interface Activity {
   history: { date: string; answers: number; correct: number }[]
 }
 
+export interface PlayStyle {
+  key: string
+  name: string
+  blurb: string
+}
+
+export interface LoggedAction {
+  street: string
+  player: number
+  kind: string
+  amount: number
+  to: number
+  pot: number
+  to_call: number
+}
+
+export interface HandView {
+  street: string
+  button: number
+  board: string[]
+  hole: (string[] | null)[]
+  behind: number[]
+  bets: number[]
+  pot: number
+  current: number | null
+  finished: boolean
+  showdown: boolean
+  net: number[] | null
+  log: LoggedAction[]
+}
+
+export interface Legal {
+  to_call: number
+  can_check: boolean
+  can_raise: boolean
+  min_raise_to: number
+  max_raise_to: number
+}
+
+export interface ReviewedDecision {
+  index: number
+  street: string
+  board: string[]
+  action: string
+  amount_bb: number
+  pot_bb: number
+  to_call_bb: number
+  equity: number
+  range_share: number
+  need: number | null
+  loss_bb: number
+  verdict: 'good' | 'leak' | 'mistake' | 'info'
+  note: string
+}
+
+export interface PlayState {
+  id: string
+  style: PlayStyle
+  hand: HandView
+  legal: Legal | null
+  hands_played: number
+  net_bb: number
+  decisions: ReviewedDecision[]
+  hand_id?: number
+}
+
+export interface Coach {
+  to_call_bb: number
+  pot_bb: number
+  need: number | null
+  equity: number
+  range_share: number
+}
+
+export interface HandSummary {
+  id: number
+  created_at: string
+  style: string
+  net_bb: number
+  worst_loss_bb: number
+  hole: string[]
+  board: string[]
+  mistakes: number
+}
+
+export interface PlayStats {
+  hands: number
+  net_bb: number
+  bb_per_100: number | null
+  vpip: number | null
+  pfr: number | null
+}
+
+export interface HandDetail extends HandSummary {
+  record: { style: string; hand: HandView; net_bb: number; decisions: ReviewedDecision[] }
+}
+
 export interface DrillStats {
   drill: string
   attempts: number
@@ -190,4 +287,16 @@ export const api = {
       body: JSON.stringify({ spot, action, classes }),
     }),
   leaks: () => request<SpotLeak[]>('/api/preflop/leaks'),
+  styles: () => request<PlayStyle[]>('/api/play/styles'),
+  play: (style: string) =>
+    request<PlayState>('/api/play', { method: 'POST', body: JSON.stringify({ style }) }),
+  act: (id: string, kind: string, to?: number) =>
+    request<PlayState>(`/api/play/${id}/act`, {
+      method: 'POST',
+      body: JSON.stringify(to === undefined ? { kind } : { kind, to }),
+    }),
+  nextHand: (id: string) => request<PlayState>(`/api/play/${id}/next`, { method: 'POST' }),
+  coach: (id: string) => request<Coach>(`/api/play/${id}/coach`),
+  hands: () => request<{ hands: HandSummary[]; stats: PlayStats }>('/api/hands'),
+  hand: (id: number) => request<HandDetail>(`/api/hands/${id}`),
 }

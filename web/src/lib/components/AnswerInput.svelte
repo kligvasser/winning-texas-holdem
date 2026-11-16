@@ -7,12 +7,15 @@
     disabled = false,
     onsubmit,
     answered = undefined,
+    skippable = true,
   }: {
     question: Question
     disabled?: boolean
     onsubmit: (value: number | string) => void
     /** After grading: what you chose and what was right, to mark the choice buttons. */
     answered?: { response: number | string; expected: number | string }
+    /** Whether S skips (not in speed rounds). */
+    skippable?: boolean
   } = $props()
 
   let text = $state('')
@@ -72,7 +75,7 @@
     {#if invalid}
       Type a number, like 25, 25% or 1/3.
     {:else}
-      Enter to check · S to skip
+      Enter to check{skippable ? ' · S to skip' : ''}
     {/if}
   </p>
 {:else}
@@ -94,7 +97,7 @@
     {/each}
   </div>
   {#if answered}<span id="picked-note" hidden>your answer</span>{/if}
-  <p class="hint">Press 1–{question.choices.length} to answer · S to skip</p>
+  <p class="hint">Press 1–{question.choices.length} to answer{skippable ? ' · S to skip' : ''}</p>
 {/if}
 
 <style>

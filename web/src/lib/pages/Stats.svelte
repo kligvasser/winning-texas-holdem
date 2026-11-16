@@ -24,6 +24,7 @@
 </script>
 
 <h1>Progress</h1>
+<p class="note"><a href={href('review')}>Review your played hands →</a></p>
 
 {#if error}
   <p role="alert">Could not load stats: {error}</p>
