@@ -1,0 +1,43 @@
+# Planning notes (kept local)
+PLAN.md
+docs/RESEARCH.md
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Tooling caches and reports
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Front end
+web/node_modules/
+web/dist/
+web/coverage/
+web/test-results/
+web/playwright-report/
+web/.svelte-kit/
+
+# Local data
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+data/cache/
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+.env

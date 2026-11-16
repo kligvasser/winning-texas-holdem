@@ -1,0 +1,57 @@
+[project]
+name = "holdem"
+version = "0.1.0"
+description = "Local training app for No-Limit Texas Hold'em"
+authors = [
+    { name = "Idan Kligvasser", email = "kligvasser@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.163.1",
+    "fsrs>=6.3.3",
+    "numpy>=2.5.5",
+    "phevaluator>=0.6.0",
+    "pokerkit>=0.7.7",
+    "sqlalchemy>=2.1.8",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.8,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.2",
+    "hypothesis>=6.170.15",
+    "pyright>=1.1.414",
+    "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.17.5",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers --cov=holdem --cov-branch --cov-report=term-missing:skip-covered --cov-fail-under=100"
+markers = ["slow: exact enumerations that take seconds"]
+
+[tool.coverage.run]
+source = ["holdem"]
+branch = true
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "\\.\\.\\."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "PL", "N"]
+ignore = ["PLR2004", "PLR0913", "PLR0917", "PLR0911", "PLR0912", "RUF001"]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
