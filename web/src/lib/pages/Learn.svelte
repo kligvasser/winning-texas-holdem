@@ -125,8 +125,11 @@
     font-size: 0.72rem;
     text-transform: uppercase;
     padding: 0.1rem 0.45rem;
+    font-weight: 800;
     border-radius: 999px;
-    background: var(--accent-soft);
+    border: var(--line);
+    background: var(--sun);
+    color: var(--on-bright);
   }
   .eyebrow {
     margin: 0;
@@ -137,7 +140,11 @@
   }
   .points {
     line-height: 1.6;
-    padding-left: 1.2rem;
+    padding: 1rem 1.2rem 1rem 2.2rem;
+    border-radius: 1.1rem;
+    background: var(--surface);
+    border: var(--line);
+    box-shadow: var(--drop);
   }
   .actions {
     display: flex;
@@ -146,11 +153,17 @@
   }
   .button {
     padding: 0.55rem 1rem;
-    border-radius: 0.55rem;
-    background: var(--accent);
-    color: var(--on-accent);
+    border-radius: 0.9rem;
+    background: linear-gradient(var(--mint), #3fc66b);
+    color: var(--on-bright);
     text-decoration: none;
-    font-weight: 600;
+    border: var(--line);
+    box-shadow: var(--drop-sm);
+    font-weight: 800;
+  }
+  .button:active {
+    transform: translateY(3px);
+    box-shadow: none;
   }
   .crumbs {
     margin-bottom: 0.75rem;
@@ -158,21 +171,36 @@
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-    gap: 0.75rem;
+    gap: 1rem;
   }
   .tile {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
     padding: 0.9rem 1rem;
-    border-radius: 0.75rem;
+    border-radius: 1.1rem;
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: var(--line);
+    box-shadow: var(--drop);
     color: inherit;
+    font-weight: 400;
     text-decoration: none;
+    transition:
+      transform 0.12s ease,
+      box-shadow 0.12s ease;
   }
   .tile:hover {
-    border-color: var(--accent);
+    transform: translateY(-3px);
+    box-shadow: 0 7px 0 var(--ink);
+  }
+  .tile strong {
+    font-weight: 900;
+  }
+  .tile.status-learning {
+    background: color-mix(in srgb, var(--sun) 24%, var(--surface));
+  }
+  .tile.status-mastered {
+    background: color-mix(in srgb, var(--mint) 28%, var(--surface));
   }
   .row {
     display: flex;
@@ -188,22 +216,25 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     padding: 0.1rem 0.45rem;
+    font-weight: 800;
     border-radius: 999px;
-    background: var(--border);
+    border: var(--line);
+    background: var(--surface);
     color: var(--muted);
   }
   .status-learning .badge {
-    background: var(--accent-soft);
-    color: var(--text);
+    background: var(--sun);
+    color: var(--on-bright);
   }
   .status-mastered .badge {
-    background: var(--accent);
-    color: var(--on-accent);
+    background: var(--mint);
+    color: var(--on-bright);
   }
   .bar {
-    height: 5px;
-    border-radius: 3px;
-    background: var(--border);
+    height: 10px;
+    border-radius: 999px;
+    border: 2px solid var(--ink);
+    background: var(--surface);
     overflow: hidden;
   }
   .bar span {

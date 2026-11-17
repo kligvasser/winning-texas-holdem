@@ -3,6 +3,7 @@
   import { percent, seconds } from '../format'
   import type { ResultRow } from '../session'
   import Confetti from './Confetti.svelte'
+  import Avatar from './Avatar.svelte'
 
   let {
     results,
@@ -55,6 +56,7 @@
 {#if celebrate}<Confetti />{/if}
 
 <section class="summary" aria-label="Session summary">
+  <div class="face" aria-hidden="true"><Avatar kind="hero" mood="happy" label="" /></div>
   <h2>Session complete</h2>
   <p class="verdict">{verdict}</p>
   <div class="tiles">
@@ -86,10 +88,16 @@
 <style>
   .summary {
     padding: 1.25rem;
-    border-radius: 1rem;
+    border-radius: 1.4rem;
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: 3px solid var(--ink);
+    box-shadow: 0 6px 0 var(--ink);
     animation: rise 0.35s ease-out;
+  }
+  .face {
+    float: right;
+    width: 4.5rem;
+    height: 4.5rem;
   }
   h2 {
     margin-top: 0;
@@ -109,15 +117,18 @@
     flex-direction: column;
     align-items: center;
     padding: 0.75rem;
-    border-radius: 0.75rem;
-    background: var(--bg);
+    border-radius: 1rem;
+    border: var(--line);
+    box-shadow: var(--drop-sm);
+    background: color-mix(in srgb, var(--tint) 30%, var(--surface));
   }
+  .tile:nth-child(1) { --tint: var(--mint); }
+  .tile:nth-child(2) { --tint: var(--skyblue); }
+  .tile:nth-child(3) { --tint: var(--tomato); }
+  .tile:nth-child(4) { --tint: var(--grape); }
   .tile strong {
     font-size: 1.5rem;
     font-variant-numeric: tabular-nums;
-  }
-  .tile.big strong {
-    color: var(--accent);
   }
   .tile small {
     font-size: 1rem;
@@ -141,9 +152,10 @@
     font-size: 0.9rem;
   }
   .bar {
-    height: 8px;
-    border-radius: 4px;
-    background: var(--border);
+height: 10px;
+    border-radius: 999px;
+    border: 2px solid var(--ink);
+    background: var(--surface);
     overflow: hidden;
   }
   .bar span {
@@ -161,15 +173,17 @@
     gap: 0.5rem;
   }
   .primary {
-    background: var(--accent);
-    color: var(--on-accent);
-    border-color: var(--accent);
-    font-weight: 600;
+    background: linear-gradient(#ffe94d, var(--sun-deep));
+    color: var(--on-bright);
+    font-weight: 900;
   }
   .button {
     padding: 0.55rem 1rem;
-    border-radius: 0.55rem;
-    border: 1px solid var(--border);
+    border-radius: 0.9rem;
+    border: var(--line);
+    box-shadow: var(--drop-sm);
+    background: var(--surface);
+    font-weight: 800;
     color: var(--text);
     text-decoration: none;
   }

@@ -163,7 +163,10 @@
     width: 100%;
     max-width: 34rem;
     padding: 2px;
-    border-radius: 6px;
+    border-radius: 0.8rem;
+    border: 3px solid var(--ink);
+    box-shadow: var(--drop);
+    overflow: hidden;
     background: var(--grid-gap);
     user-select: none;
   }
@@ -174,6 +177,9 @@
     aspect-ratio: 1;
     padding: 0;
     border: none;
+    box-shadow: none;
+    transform: none;
+    filter: none;
     border-radius: 3px;
     font-size: clamp(0.56rem, 1.7vw, 0.74rem);
     font-weight: 700;

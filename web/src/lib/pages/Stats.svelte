@@ -93,17 +93,22 @@
   .tiles {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
-    gap: 0.75rem;
+    gap: 1rem;
   }
   .tiles div {
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 0.9rem;
-    border-radius: 0.9rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    border-radius: 1.1rem;
+    background: color-mix(in srgb, var(--tint) 30%, var(--surface));
+    border: var(--line);
+    box-shadow: var(--drop);
   }
+  .tiles div:nth-child(1) { --tint: var(--tomato); }
+  .tiles div:nth-child(2) { --tint: var(--sun); }
+  .tiles div:nth-child(3) { --tint: var(--skyblue); }
+  .tiles div:nth-child(4) { --tint: var(--mint); }
   .tiles strong {
     font-size: 1.6rem;
     font-variant-numeric: tabular-nums;
@@ -116,6 +121,18 @@
   }
   .scroll {
     overflow-x: auto;
+    border-radius: 1.1rem;
+    background: var(--surface);
+    border: var(--line);
+    box-shadow: var(--drop);
+    margin-bottom: 0.4rem;
+  }
+  thead th {
+    background: var(--accent-soft);
+    font-weight: 900;
+  }
+  tbody tr:last-child > * {
+    border-bottom: none;
   }
   table {
     width: 100%;
@@ -144,15 +161,16 @@
   }
   .bar {
     width: 4.5rem;
-    height: 6px;
-    border-radius: 3px;
-    background: var(--border);
+    height: 10px;
+    border-radius: 999px;
+    border: 2px solid var(--ink);
+    background: var(--surface);
     overflow: hidden;
   }
   .bar span {
     display: block;
     height: 100%;
-    background: #f2b544;
+    background: var(--sun-deep);
   }
   .bar span.good {
     background: var(--good);

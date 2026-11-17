@@ -1,5 +1,8 @@
 """Rule-based opponents with recognisable styles.
 
+``Bot`` plays heads-up; ``SeatBot`` plays the six-max table with the same postflop logic and
+position-aware preflop thresholds.
+
 Preflop, a bot ranks its hand by equity against a random hand and compares the rank with
 thresholds ("plays the top 55% from the button"). Postflop it sorts its hand into a class (monster,
 strong, medium, draw, air) and bets, calls or raises with per-class frequencies. Styles differ only
@@ -16,6 +19,7 @@ from functools import cache
 from holdem.core.ranges import ALL_CLASSES, Range, class_combo_count, class_of_combo
 from holdem.drills.scenarios import hand_strength
 from holdem.engine.headsup import BIG_BLIND, Action, HeadsUpHand
+from holdem.engine.table import TableHand
 from holdem.stories import PREDICATES
 
 CLASSES = ("monster", "strong", "medium", "draw", "air")
@@ -41,6 +45,7 @@ def top_share_range(share: float) -> Range:
 class Style:
     key: str
     name: str
+    character: str  # the bot's name at the six-max table
     blurb: str
     open: float  # raise this share of hands first in from the button
     limp: float  # otherwise limp this share (calling stations love to limp)
@@ -54,7 +59,12 @@ class Style:
     size: float  # bet size as a share of the pot
 
     def public(self) -> dict[str, str]:
-        return {"key": self.key, "name": self.name, "blurb": self.blurb}
+        return {
+            "key": self.key,
+            "name": self.name,
+            "character": self.character,
+            "blurb": self.blurb,
+        }
 
 
 def _f(*values: float) -> dict[str, float]:
@@ -67,6 +77,7 @@ STYLES: dict[str, Style] = {
         Style(
             "nit",
             "Nit",
+            "Rocky",
             "Plays few hands and bets only when strong. "
             "Steal its blinds; fold when it fights back.",
             open=0.3,
@@ -83,6 +94,7 @@ STYLES: dict[str, Style] = {
         Style(
             "tag",
             "TAG",
+            "Finn",
             "Tight and aggressive: a solid regular. Few easy spots, so play fundamentally sound.",
             open=0.55,
             limp=0.0,
@@ -98,6 +110,7 @@ STYLES: dict[str, Style] = {
         Style(
             "lag",
             "LAG",
+            "Roxy",
             "Loose and aggressive: opens most hands and keeps betting. Call down lighter.",
             open=0.8,
             limp=0.0,
@@ -113,6 +126,7 @@ STYLES: dict[str, Style] = {
         Style(
             "station",
             "Calling station",
+            "Moby",
             "Calls far too much and rarely raises. Never bluff it; value bet relentlessly.",
             open=0.25,
             limp=0.95,
@@ -128,6 +142,7 @@ STYLES: dict[str, Style] = {
         Style(
             "maniac",
             "Maniac",
+            "Blaze",
             "Raises and bluffs constantly. Let it hang itself: call wider and trap.",
             open=0.95,
             limp=0.0,
@@ -156,7 +171,7 @@ def hand_class(hole: tuple[int, int], board: list[int]) -> str:
     return "air"
 
 
-def preflop_raises(hand: HeadsUpHand) -> int:
+def preflop_raises(hand: HeadsUpHand | TableHand) -> int:
     """How many raises (not counting blinds) happened preflop so far."""
     return sum(1 for a in hand.log if a.street == "preflop" and a.kind == "raise")
 
@@ -166,7 +181,7 @@ class Bot:
     style: Style
     rng: random.Random
 
-    def options(self, hand: HeadsUpHand) -> list[tuple[str, int | None, float]]:
+    def options(self, hand: HeadsUpHand | TableHand) -> list[tuple[str, int | None, float]]:
         """Every action this bot could take now, with its size and probability.
 
         ``decide`` samples from exactly these numbers, so they also tell us how likely the bot was
@@ -188,11 +203,11 @@ class Bot:
         if legal.to_call >= before_bet * 0.6 and group in ("medium", "draw", "air"):
             stay *= 0.7  # bets of 60% pot or more push weaker hands out
         raise_ = self.style.raise_[group] if legal.can_raise else 0.0
-        to = min(max(legal.min_raise_to, hand.bets[1 - me] * 3), legal.max_raise_to)
+        to = min(max(legal.min_raise_to, max(hand.bets) * 3), legal.max_raise_to)
         stays = 1.0 if legal.to_call <= BIG_BLIND // 2 else max(stay, raise_)
         return [("raise", to, raise_), ("call", None, stays - raise_), ("fold", None, 1 - stays)]
 
-    def decide(self, hand: HeadsUpHand) -> tuple[str, int | None]:
+    def decide(self, hand: HeadsUpHand | TableHand) -> tuple[str, int | None]:
         """Choose an action for the player to act (assumed to be this bot)."""
         choices = [(k, to, p) for k, to, p in self.options(hand) if p > 0]
         if len(choices) == 1:
@@ -207,7 +222,7 @@ class Bot:
     def _size(self, low: int, high: int, pot: int) -> int:
         return min(high, max(low, round(pot * self.style.size)))
 
-    def _preflop(self, hand: HeadsUpHand) -> tuple[str, int | None]:
+    def _preflop(self, hand: HeadsUpHand | TableHand) -> tuple[str, int | None]:
         legal = hand.legal()
         me = hand.current
         strength = percentile()[class_of_combo(*hand.hole[me])]
@@ -256,3 +271,97 @@ def estimated_range(style: Style, log: Sequence[Action], bot: int, button: int) 
     if mine and mine[0] == "call":
         return top_share_range(max(style.limp, style.open) if bot == button else style.call)
     return top_share_range(1.0)  # checked the big blind option: anything
+
+
+# Six-max: how much of a style's heads-up numbers it plays from each position.
+OPEN_FACTOR = {"UTG": 0.3, "HJ": 0.4, "CO": 0.55, "BTN": 0.8, "SB": 0.6, "BB": 0.6}
+MULTIWAY = 0.6  # limps and re-raises tighten up with more players behind
+
+
+def open_share(style: Style, position: str) -> float:
+    return style.open * OPEN_FACTOR[position]
+
+
+def limp_share(style: Style) -> float:
+    return style.limp * MULTIWAY
+
+
+def three_bet_share(style: Style) -> float:
+    return style.three_bet * MULTIWAY
+
+
+def call_share(style: Style, position: str) -> float:
+    return style.call * (0.9 if position == "BB" else 0.5)
+
+
+def _clamp(low: int, value: int, high: int) -> int:
+    return min(high, max(low, value))
+
+
+@dataclass
+class SeatBot(Bot):
+    """A bot for the six-max table: the same postflop play, preflop by position."""
+
+    def _preflop(self, hand: HeadsUpHand | TableHand) -> tuple[str, int | None]:
+        assert isinstance(hand, TableHand)
+        legal = hand.legal()
+        me = hand.current
+        position = hand.positions[me]
+        strength = percentile()[class_of_combo(*hand.hole[me])]
+        raises = preflop_raises(hand)
+        s = self.style
+        low, high = legal.min_raise_to, legal.max_raise_to
+        if raises == 0:
+            limpers = sum(1 for a in hand.log if a.kind == "call")
+            if legal.can_check:  # the big blind's option after limps
+                if strength <= three_bet_share(s):
+                    return "raise", _clamp(low, 8 + 2 * limpers, high)
+                return "check", None
+            if strength <= open_share(s, position):
+                return "raise", _clamp(low, 5 + 2 * limpers, high)  # 2.5bb plus 1bb per limper
+            if strength <= limp_share(s):
+                return "call", None
+            return "fold", None
+        if raises == 1:
+            if legal.can_raise and strength <= three_bet_share(s):
+                return "raise", _clamp(low, max(hand.bets) * 3, high)
+            if strength <= call_share(s, position):
+                return "call", None
+            return "fold", None
+        if legal.can_raise and strength <= s.four_bet:
+            return "raise", high  # four-bets go all in
+        if strength <= s.call_3bet or legal.to_call <= BIG_BLIND:
+            return "call", None
+        return "fold", None
+
+
+def seat_range(style: Style, log: Sequence[Action], seat: int, position: str) -> Range:
+    """A six-max bot's likely range from its style, position and preflop actions in ``log``."""
+    preflop = [a for a in log if a.street == "preflop" and a.kind != "post"]
+    mine = [i for i, a in enumerate(preflop) if a.player == seat]
+    my_raises = [i for i in mine if preflop[i].kind == "raise"]
+    my_calls = [i for i in mine if preflop[i].kind == "call"]
+
+    def raises_before(index: int) -> int:
+        return sum(1 for a in preflop[:index] if a.kind == "raise")
+
+    if len(my_raises) >= 2:
+        return top_share_range(style.four_bet)
+    if my_raises:
+        earlier = raises_before(my_raises[0])
+        share = (
+            open_share(style, position)
+            if earlier == 0
+            else three_bet_share(style)
+            if earlier == 1
+            else style.four_bet
+        )
+        if my_calls and my_calls[-1] > my_raises[0]:  # raised, was re-raised, and called
+            share = min(share, style.call_3bet)
+        return top_share_range(share)
+    if my_calls:
+        earlier = raises_before(my_calls[0])
+        if earlier == 0:
+            return top_share_range(max(limp_share(style), open_share(style, position)))
+        return top_share_range(call_share(style, position) if earlier == 1 else style.call_3bet)
+    return top_share_range(1.0)  # checked the big blind, or has not acted yet

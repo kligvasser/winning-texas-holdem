@@ -175,43 +175,59 @@
   }
   .button {
     padding: 0.55rem 1rem;
-    border-radius: 0.55rem;
-    background: var(--accent);
-    color: var(--on-accent);
+    border-radius: 0.9rem;
+    background: linear-gradient(var(--mint), #3fc66b);
+    color: var(--on-bright);
     text-decoration: none;
-    font-weight: 600;
+    border: var(--line);
+    box-shadow: var(--drop-sm);
+    font-weight: 800;
+  }
+  .button:active {
+    transform: translateY(3px);
+    box-shadow: none;
   }
   .button.secondary {
     background: var(--surface);
     color: var(--text);
-    border: 1px solid var(--border);
   }
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
-    gap: 0.75rem;
+    gap: 1rem;
   }
   .tile {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
     padding: 0.9rem 1rem;
-    border-radius: 0.75rem;
+    border-radius: 1.1rem;
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: var(--line);
+    box-shadow: var(--drop);
     color: inherit;
+    font-weight: 400;
     text-decoration: none;
+    transition:
+      transform 0.12s ease,
+      box-shadow 0.12s ease;
   }
   .tile:hover {
-    border-color: var(--accent);
+    transform: translateY(-3px);
+    box-shadow: 0 7px 0 var(--ink);
+  }
+  .tile strong {
+    font-weight: 900;
   }
   .tile span {
     font-size: 0.9rem;
   }
   .result {
     padding: 1rem 1.25rem;
-    border-radius: 0.75rem;
+    border-radius: 1.1rem;
     background: var(--surface);
+    border: var(--line);
+    box-shadow: var(--drop);
     margin-top: 0.5rem;
   }
   .result h2 {
@@ -227,7 +243,20 @@
   }
   table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    border-radius: 1.1rem;
+    background: var(--surface);
+    border: var(--line);
+    box-shadow: var(--drop);
+  }
+  thead th {
+    background: var(--accent-soft);
+    font-weight: 900;
+  }
+  tbody tr:last-child > * {
+    border-bottom: none;
   }
   th,
   td {

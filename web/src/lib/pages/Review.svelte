@@ -43,9 +43,9 @@
 {:else if selected}
   <nav class="crumbs"><a href={href('review')}>← All hands</a></nav>
   {#if detail}
-    {@const names: [string, string] = ['You', detail.style]}
-    <h1>Hand #{detail.id} vs {detail.style}</h1>
-    <PokerTable hand={detail.record.hand} {names} />
+    {@const names = detail.record.seats.map((s) => s.character)}
+    <h1>Hand #{detail.id}</h1>
+    <PokerTable hand={detail.record.hand} seats={detail.record.seats} />
     <h2>Your decisions</h2>
     <DecisionList decisions={detail.record.decisions} />
     <h2>Action log</h2>
@@ -78,7 +78,7 @@
             <a href={href('review', String(h.id))}>
               <span class="cards">{h.hole.join(' ')}</span>
               <span class="board">{h.board.join(' ') || 'no flop'}</span>
-              <span class="vs">vs {h.style}</span>
+              <span class="vs">{h.style}</span>
               <span class:won={h.net_bb > 0} class:lost={h.net_bb < 0}
                 >{h.net_bb > 0 ? '+' : ''}{h.net_bb}bb</span
               >
@@ -102,18 +102,23 @@
   .tiles {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-    gap: 0.75rem;
+    gap: 1rem;
   }
   .tiles div {
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 0.9rem;
-    border-radius: 0.9rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    border-radius: 1.1rem;
+    background: color-mix(in srgb, var(--tint) 30%, var(--surface));
+    border: var(--line);
+    box-shadow: var(--drop);
     text-align: center;
   }
+  .tiles div:nth-child(1) { --tint: var(--skyblue); }
+  .tiles div:nth-child(2) { --tint: var(--sun); }
+  .tiles div:nth-child(3) { --tint: var(--mint); }
+  .tiles div:nth-child(4) { --tint: var(--grape); }
   .tiles strong {
     font-size: 1.5rem;
   }
@@ -123,6 +128,8 @@
   }
   .filter {
     display: inline-flex;
+    align-items: center;
+    font-weight: 700;
     gap: 0.4rem;
     margin: 1rem 0 0.5rem;
   }
@@ -130,17 +137,19 @@
     list-style: none;
     padding: 0;
     display: grid;
-    gap: 0.4rem;
+    gap: 0.6rem;
   }
   .hands a {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem 1rem;
     padding: 0.6rem 0.9rem;
-    border-radius: 0.6rem;
+    border-radius: 0.9rem;
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: var(--line);
+    box-shadow: var(--drop-sm);
     color: inherit;
+    font-weight: 400;
     text-decoration: none;
     font-variant-numeric: tabular-nums;
   }

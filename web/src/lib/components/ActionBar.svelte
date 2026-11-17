@@ -56,7 +56,7 @@
       <button type="button" class="fold" {disabled} onclick={() => onact('fold')}>Fold <kbd>F</kbd></button>
     {/if}
     {#if legal.can_check}
-      <button type="button" {disabled} onclick={() => onact('check')}>Check <kbd>C</kbd></button>
+      <button type="button" class="check" {disabled} onclick={() => onact('check')}>Check <kbd>C</kbd></button>
     {:else}
       <button type="button" class="call" {disabled} onclick={() => onact('call')}
         >Call {toBb(legal.to_call)}bb <kbd>C</kbd></button
@@ -69,6 +69,7 @@
         <button
           type="button"
           class="raise"
+          class:allin={option.label === 'All-in'}
           {disabled}
           onclick={() => onact(legal.can_check ? 'bet' : 'raise', option.to)}
         >
@@ -96,42 +97,65 @@
   .bar {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
-    margin-top: 0.9rem;
+    gap: 0.7rem;
   }
   .main,
   .raises {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: 0.6rem;
   }
   button {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    font-weight: 600;
+    border: 2px solid var(--ink);
+    border-radius: 0.9rem;
+    font-weight: 800;
+    color: #2a1a3a;
+    background: #fff;
+    box-shadow: 0 4px 0 var(--ink);
+    transition:
+      transform 0.07s,
+      box-shadow 0.07s,
+      filter 0.15s;
+  }
+  button:hover:not(:disabled) {
+    border-color: var(--ink);
+    filter: brightness(1.07);
+    transform: translateY(-1px);
+  }
+  button:active:not(:disabled) {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 var(--ink);
+  }
+  .main button {
+    font-size: 1.1rem;
+    padding: 0.65rem 1.5rem;
   }
   .fold {
-    border-color: var(--bad);
-    color: var(--bad);
+    background: #ff7b72;
   }
+  .check,
   .call {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--on-accent);
+    background: #6fdd8b;
   }
   .raise {
     flex-direction: column;
     gap: 0;
     min-width: 5.5rem;
+    background: #ffd84a;
+  }
+  .raise.allin {
+    background: #ff9f43;
   }
   .raise small {
-    font-weight: 400;
-    color: var(--muted);
+    font-weight: 600;
+    opacity: 0.75;
   }
   kbd {
     font-size: 0.7rem;
-    opacity: 0.7;
+    opacity: 0.65;
   }
   .custom {
     display: flex;
@@ -140,6 +164,11 @@
   .custom input {
     width: 7.5rem;
     padding: 0.4rem 0.6rem;
+    border: 2px solid var(--ink);
+    border-radius: 0.9rem;
+  }
+  .custom button {
+    background: #ffd84a;
   }
   @media (pointer: coarse) {
     kbd {

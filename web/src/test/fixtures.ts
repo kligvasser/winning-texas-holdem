@@ -1,4 +1,4 @@
-import type { Activity, Concept, Curriculum, HandView, Legal, PlayState, ReviewedDecision, DailyPlan, DrillMeta, DrillStats, GradeResult, Question, Spot, SpotLeak } from '../lib/api'
+import type { Activity, Concept, Curriculum, HandView, Legal, LoggedAction, PlayState, PlayStyle, TableView, ReviewedDecision, DailyPlan, DrillMeta, DrillStats, GradeResult, Question, Spot, SpotLeak } from '../lib/api'
 
 export const drills: DrillMeta[] = [
   { key: 'pot-odds', title: 'Pot odds', concept: 'pot-odds', tier: 1, description: 'Need?' },
@@ -133,39 +133,73 @@ export const activity: Activity = {
   ],
 }
 
+export const seats: PlayStyle[] = [
+  { key: 'hero', name: 'You', character: 'You', blurb: '' },
+  { key: 'nit', name: 'Nit', character: 'Rocky', blurb: 'Plays few hands.' },
+  { key: 'tag', name: 'TAG', character: 'Finn', blurb: 'Solid.' },
+  { key: 'lag', name: 'LAG', character: 'Roxy', blurb: 'Loose.' },
+  { key: 'station', name: 'Calling station', character: 'Moby', blurb: 'Calls too much.' },
+  { key: 'maniac', name: 'Maniac', character: 'Blaze', blurb: 'Raises constantly.' },
+]
+
+const act = (player: number, kind: string, amount: number, to: number, pot: number, to_call = 0, street = 'preflop'): LoggedAction => ({
+  street,
+  player,
+  kind,
+  amount,
+  to,
+  pot,
+  to_call,
+})
+
+/** Six-max on the flop: you (button) raised, Rocky called from the small blind and now bets. */
 export const handView = (over: Partial<HandView> = {}): HandView => ({
   street: 'flop',
   button: 0,
+  positions: ['BTN', 'SB', 'BB', 'UTG', 'HJ', 'CO'],
   board: ['Kh', '7d', '2c'],
-  hole: [['As', 'Kd'], null],
-  behind: [190, 186],
-  bets: [0, 4],
-  pot: 24,
+  hole: [['As', 'Kd'], null, null, null, null, null],
+  made: ['One Pair', null, null, null, null, null],
+  behind: [195, 191, 198, 200, 200, 200],
+  bets: [0, 4, 0, 0, 0, 0],
+  folded: [false, false, true, true, true, true],
+  pot: 16,
   current: 0,
   finished: false,
   showdown: false,
   net: null,
+  winners: [],
+  last: act(1, 'bet', 4, 4, 12, 0, 'flop'),
   log: [
-    { street: 'preflop', player: 0, kind: 'post', amount: 1, to: 1, pot: 0, to_call: 0 },
-    { street: 'preflop', player: 1, kind: 'post', amount: 2, to: 2, pot: 1, to_call: 0 },
-    { street: 'preflop', player: 0, kind: 'raise', amount: 4, to: 5, pot: 3, to_call: 1 },
+    act(1, 'post', 1, 1, 0),
+    act(2, 'post', 2, 2, 1),
+    act(0, 'raise', 5, 5, 3, 2),
+    act(1, 'call', 4, 5, 8, 4),
+    act(1, 'bet', 4, 4, 12, 0, 'flop'),
   ],
   ...over,
 })
 
+/** The same table one step earlier: Rocky has just called before the flop. */
+export const frame = (over: Partial<TableView> = {}): TableView => {
+  const { log: _log, ...view } = handView()
+  return { ...view, ...over }
+}
+
 export const legal: Legal = { to_call: 4, can_check: false, can_raise: true, min_raise_to: 8, max_raise_to: 190 }
 
 export const decisions: ReviewedDecision[] = [
-  { index: 2, street: 'preflop', board: [], action: 'raise', amount_bb: 2.5, pot_bb: 1.5, to_call_bb: 0.5, equity: 0.6, range_share: 1, need: 0.25, loss_bb: 0, verdict: 'info', note: 'Raises are not graded.' },
-  { index: 5, street: 'flop', board: ['Kh', '7d', '2c'], action: 'fold', amount_bb: 0, pot_bb: 12, to_call_bb: 2, equity: 0.7, range_share: 0.5, need: 0.14, loss_bb: 7.8, verdict: 'mistake', note: 'You folded a winner.' },
-  { index: 7, street: 'turn', board: [], action: 'call', amount_bb: 3, pot_bb: 12, to_call_bb: 3, equity: 0.3, range_share: 0.5, need: 0.2, loss_bb: 0.4, verdict: 'leak', note: 'Thin.' },
-  { index: 9, street: 'river', board: [], action: 'call', amount_bb: 1, pot_bb: 12, to_call_bb: 1, equity: 0.5, range_share: 0.5, need: 0.1, loss_bb: 0, verdict: 'good', note: 'Fine.' },
+  { index: 2, street: 'preflop', board: [], action: 'raise', amount_bb: 2.5, pot_bb: 1.5, to_call_bb: 0.5, equity: 0.6, opponents: 1, need: 0.25, loss_bb: 0, verdict: 'info', note: 'Raises are not graded.' },
+  { index: 5, street: 'flop', board: ['Kh', '7d', '2c'], action: 'fold', amount_bb: 0, pot_bb: 12, to_call_bb: 2, equity: 0.7, opponents: 2, need: 0.14, loss_bb: 7.8, verdict: 'mistake', note: 'You folded a winner.' },
+  { index: 7, street: 'turn', board: [], action: 'call', amount_bb: 3, pot_bb: 12, to_call_bb: 3, equity: 0.3, opponents: 2, need: 0.2, loss_bb: 0.4, verdict: 'leak', note: 'Thin.' },
+  { index: 9, street: 'river', board: [], action: 'call', amount_bb: 1, pot_bb: 12, to_call_bb: 1, equity: 0.5, opponents: 2, need: 0.1, loss_bb: 0, verdict: 'good', note: 'Fine.' },
 ]
 
 export const playState = (over: Partial<PlayState> = {}): PlayState => ({
   id: 's1',
-  style: { key: 'maniac', name: 'Maniac', blurb: 'Raises constantly.' },
+  seats,
   hand: handView(),
+  frames: [frame()],
   legal,
   hands_played: 0,
   net_bb: 0,

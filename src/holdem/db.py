@@ -194,7 +194,7 @@ def hand_summary(row: PlayedHand) -> dict[str, Any]:
 
 
 def play_stats(session: Session) -> dict[str, Any]:
-    """Your heads-up numbers across stored hands: results, VPIP and PFR."""
+    """Your numbers across stored hands: results, VPIP and PFR."""
     rows = session.scalars(select(PlayedHand)).all()
     vpip = pfr = 0
     for row in rows:

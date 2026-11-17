@@ -1,36 +1,73 @@
 <script lang="ts">
-  import { api, type Coach, type PlayState, type PlayStyle } from '../api'
+  import { api, type Coach, type PlayState, type PlayStyle, type TableView } from '../api'
   import ActionBar from '../components/ActionBar.svelte'
+  import Avatar from '../components/Avatar.svelte'
+  import Confetti from '../components/Confetti.svelte'
   import DecisionList from '../components/DecisionList.svelte'
   import PokerTable from '../components/PokerTable.svelte'
-  import { describe, toBb } from '../play'
+  import { describe, frameDelay, signedBb, toBb } from '../play'
   import { href } from '../router.svelte'
 
-  let styles = $state<PlayStyle[] | null>(null)
+  /** Milliseconds per bot action; 0 shows the newest position at once. */
+  let { pace = 700 }: { pace?: number } = $props()
+
+  const BIG_WIN = 10 // chips: 5bb
+
+  let cast = $state<PlayStyle[] | null>(null)
   let game = $state<PlayState | null>(null)
   let coach = $state<Coach | null>(null)
   let showCoach = $state(false)
   let error = $state<string | null>(null)
   let busy = $state(false)
+  let step = $state(0) // which frame of game.frames is on the table
+  let tick = $state(0)
+  let sweep = $state<number[] | null>(null)
+  let timer: ReturnType<typeof setTimeout> | undefined
 
   $effect(() => {
     api.styles().then(
-      (list) => (styles = list),
+      (list) => (cast = list),
       (e: Error) => (error = e.message),
     )
+    return () => clearTimeout(timer)
   })
 
-  const names = $derived<[string, string]>(['You', game?.style.name ?? 'Bot'])
-  const hand = $derived(game?.hand)
-  const yourTurn = $derived(!!game?.legal && hand?.current === 0)
+  const names = $derived(game?.seats.map((s) => s.character) ?? [])
+  const settled = $derived(!!game && step >= game.frames.length - 1)
+  const table = $derived<TableView | null>(game ? (settled ? game.hand : game.frames[step]) : null)
+  const yourTurn = $derived(settled && !!game?.legal)
+  const over = $derived(settled && !!game?.hand.finished)
+  const net = $derived(game?.hand.net?.[0] ?? 0)
+
+  function show(index: number) {
+    const frames = game!.frames
+    const before = frames[step]
+    step = index
+    tick += 1
+    const now = frames[index]
+    // Bets that left the seats since the last position are on their way to the pot.
+    const cleared = index > 0 && now.bets.every((b) => b === 0) && before.bets.some((b) => b > 0)
+    sweep = cleared ? before.bets : null
+    if (index < frames.length - 1) {
+      timer = setTimeout(() => show(index + 1), frameDelay(now, pace, now.folded[0]))
+    }
+  }
+
+  function skip() {
+    clearTimeout(timer)
+    if (game && !settled) show(game.frames.length - 1)
+  }
 
   async function run(work: () => Promise<PlayState>) {
     if (busy) return // a second click or key press while a move is in flight
     busy = true
     error = null
     coach = null
+    clearTimeout(timer)
     try {
       game = await work()
+      step = 0
+      show(pace ? 0 : game.frames.length - 1)
       if (showCoach && game.legal) coach = await api.coach(game.id)
     } catch (e) {
       error = (e as Error).message
@@ -44,8 +81,18 @@
     if (showCoach && game?.legal) coach = await api.coach(game.id).catch(() => null)
   }
 
+  function leave() {
+    clearTimeout(timer)
+    game = null
+    coach = null
+  }
+
   function onkeydown(event: KeyboardEvent) {
-    if (event.key.toLowerCase() === 'n' && game?.hand.finished && !busy) {
+    if (!game || busy) return
+    if (event.key === ' ' && !settled) {
+      event.preventDefault()
+      skip()
+    } else if (event.key.toLowerCase() === 'n' && over) {
       void run(() => api.nextHand(game!.id))
     }
   }
@@ -56,70 +103,89 @@
 {#if error}<p role="alert" class="error">{error}</p>{/if}
 
 {#if !game}
-  <h1>Play</h1>
-  <p class="lead">
-    Heads-up, 100bb, against a bot with a clear style. Every decision you make is reviewed after
-    the hand.
-  </p>
-  {#if styles === null && !error}
-    <p>Loading…</p>
-  {:else if styles}
-    <div class="styles">
-      {#each styles as s (s.key)}
-        <button type="button" class="style" disabled={busy} onclick={() => run(() => api.play(s.key))}>
-          <strong>{s.name}</strong>
-          <span>{s.blurb}</span>
-        </button>
-      {/each}
-    </div>
-  {/if}
-  <p><a href={href('review')}>Review your past hands →</a></p>
-{:else if hand}
+  <section class="lobby">
+    <h1>Play</h1>
+    <p class="lead">
+      Six seats, 100bb each, and five rivals who each play their own way. Spot their habits, take
+      their chips, then see every decision you made reviewed.
+    </p>
+    {#if cast === null && !error}
+      <p>Loading…</p>
+    {:else if cast}
+      <ul class="cast">
+        {#each cast as s, i (s.key)}
+          <li style:--i={i}>
+            <span class="mug"><Avatar kind={s.key} label={s.character} /></span>
+            <strong>{s.character}</strong>
+            <em>{s.name}</em>
+            <span>{s.blurb}</span>
+          </li>
+        {/each}
+      </ul>
+      <button type="button" class="big" disabled={busy} onclick={() => run(() => api.play())}>Deal me in!</button>
+    {/if}
+    <p><a href={href('review')}>Review your past hands →</a></p>
+  </section>
+{:else if table}
   <header class="session">
-    <span><strong>{game.style.name}</strong> · hand {game.hands_played + (hand.finished ? 0 : 1)}</span>
-    <span class:won={game.net_bb > 0} class:lost={game.net_bb < 0} aria-label="Session result"
+    <span class="pill">Hand {game.hands_played + (game.hand.finished ? 0 : 1)}</span>
+    <span class="pill" class:won={game.net_bb > 0} class:lost={game.net_bb < 0} aria-label="Session result"
       >{game.net_bb > 0 ? '+' : ''}{game.net_bb}bb</span
     >
-    <button type="button" class="link" onclick={() => ((game = null), (coach = null))}>Change opponent</button>
+    <button type="button" class="link" onclick={leave}>Leave table</button>
   </header>
 
-  <PokerTable {hand} {names} />
-
-  {#if yourTurn && game.legal}
-    <ActionBar
-      legal={game.legal}
-      pot={hand.pot}
-      currentBet={hand.bets[0]}
-      disabled={busy}
-      onact={(kind, to) => run(() => api.act(game!.id, kind, to))}
-    />
-    <label class="coach-toggle"><input type="checkbox" checked={showCoach} onchange={toggleCoach} /> Coach</label>
-    {#if showCoach && coach}
-      <p class="coach" aria-label="Coach">
-        {#if coach.need !== null}Price: call {coach.to_call_bb}bb into {coach.pot_bb}bb needs
-          <strong>{Math.round(coach.need * 100)}%</strong>.{/if}
-        Your equity against the bot's likely range (top {Math.round(coach.range_share * 100)}%):
-        <strong>{Math.round(coach.equity * 100)}%</strong>.
-      </p>
+  <div class="stage">
+    <PokerTable hand={table} seats={game.seats} {sweep} {tick} />
+    {#if over}
+      {#key game.hands_played}
+        <div class="banner" class:win={net > 0} class:loss={net < 0}>
+          <h2>
+            {#if net > 0}You win {toBb(net)}bb!{:else if net < 0}You lose {toBb(-net)}bb{:else}{game.hand.winners
+                .map((w) => names[w])
+                .join(' & ')} {game.hand.winners.length > 1 ? 'split' : 'takes'} the pot{/if}
+          </h2>
+        </div>
+        {#if net > 0}<div class="winflash" aria-hidden="true"></div>{/if}
+        {#if net >= BIG_WIN}<Confetti />{/if}
+      {/key}
     {/if}
-  {/if}
+  </div>
 
-  {#if hand.finished}
+  <div class="controls" class:done={over}>
+    {#if !settled}
+      <button type="button" class="skip" onclick={skip}>Skip ▸▸ <kbd>Space</kbd></button>
+    {:else if yourTurn && game.legal}
+      <ActionBar
+        legal={game.legal}
+        pot={game.hand.pot}
+        currentBet={game.hand.bets[0]}
+        disabled={busy}
+        onact={(kind, to) => run(() => api.act(game!.id, kind, to))}
+      />
+      <label class="coach-toggle"><input type="checkbox" checked={showCoach} onchange={toggleCoach} /> Coach</label>
+      {#if showCoach && coach}
+        <p class="coach" aria-label="Coach">
+          {#if coach.need !== null}Price: call {coach.to_call_bb}bb into {coach.pot_bb}bb needs
+            <strong>{Math.round(coach.need * 100)}%</strong>.{/if}
+          Your equity against {coach.opponents === 1 ? "the bot's likely range" : `${coach.opponents} bots' likely ranges`}:
+          <strong>{Math.round(coach.equity * 100)}%</strong>.
+        </p>
+      {/if}
+    {:else if over}
+      <button type="button" class="big next" disabled={busy} onclick={() => run(() => api.nextHand(game!.id))}
+        >Next hand <kbd>N</kbd></button
+      >
+    {/if}
+  </div>
+
+  {#if over}
     <section class="result" aria-label="Hand result">
-      <div class="head">
-        <h2>
-          {#if hand.net && hand.net[0] > 0}You win {toBb(hand.net[0])}bb{:else if hand.net && hand.net[0] < 0}You lose
-            {toBb(-hand.net[0])}bb{:else}Split pot{/if}
-        </h2>
-        <button type="button" class="next" disabled={busy} onclick={() => run(() => api.nextHand(game!.id))}
-          >Next hand <kbd>N</kbd></button
-        >
-      </div>
       <h3>Your decisions</h3>
       <DecisionList decisions={game.decisions} />
       <p class="note">
-        Graded against the bot's likely range from its style and preflop actions; later betting is
-        ignored, so treat the numbers as estimates.
+        Graded against the likely ranges of the bots in the pot, from their style, position and
+        preflop actions. Later betting is ignored, so treat the numbers as estimates.
       </p>
     </section>
   {/if}
@@ -127,7 +193,7 @@
   <details class="log">
     <summary>Action log</summary>
     <ol>
-      {#each hand.log as a, i (i)}<li><span class="street">{a.street}</span> {describe(a, names)}</li>{/each}
+      {#each game.hand.log as a, i (i)}<li><span class="street">{a.street}</span> {describe(a, names)}</li>{/each}
     </ol>
   </details>
 {/if}
@@ -137,80 +203,203 @@
   .note {
     color: var(--muted);
   }
-  .styles {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-    gap: 0.75rem;
-    margin: 1rem 0;
+  .lead {
+    max-width: 40rem;
+    font-size: 1.05rem;
   }
-  .style {
+  .cast {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+    gap: 0.9rem;
+    margin: 1.2rem 0;
+  }
+  .cast li {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 0.3rem;
-    text-align: left;
-    padding: 1rem;
+    align-items: center;
+    text-align: center;
+    gap: 0.15rem;
+    padding: 0.9rem 0.8rem;
+    border-radius: 1.1rem;
+    border: 3px solid var(--ink);
+    background: var(--surface);
+    box-shadow: 0 5px 0 var(--ink);
+    animation: rise 0.4s cubic-bezier(0.3, 1.5, 0.5, 1) backwards;
+    animation-delay: calc(var(--i) * 70ms);
+    transition: transform 0.15s;
   }
-  .style span {
-    color: var(--muted);
-    font-size: 0.9rem;
+  .cast li:hover {
+    transform: translateY(-4px) rotate(-1.5deg);
+  }
+  .cast li:nth-child(1) { background: #dfe4ef; }
+  .cast li:nth-child(2) { background: #cfe3ff; }
+  .cast li:nth-child(3) { background: #ffdcc4; }
+  .cast li:nth-child(4) { background: #c9f5ee; }
+  .cast li:nth-child(5) { background: #ffd0cf; }
+  .cast li {
+    color: #2a1a3a;
+  }
+  .mug {
+    width: 4.6rem;
+    height: 4.6rem;
+  }
+  .cast strong {
+    font-size: 1.15rem;
+  }
+  .cast em {
+    font-style: normal;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0 0.5rem;
+    border-radius: 999px;
+    background: #2a1a3a;
+    color: #fff;
+  }
+  .cast span:last-child {
+    font-size: 0.85rem;
+  }
+  .big {
+    padding: 0.8rem 2rem;
+    border-radius: 1rem;
+    border: 3px solid var(--ink);
+    background: linear-gradient(#ffe94d, #ffb02e);
+    color: #2a1a3a;
+    font-size: 1.25rem;
+    font-weight: 900;
+    box-shadow: 0 6px 0 var(--ink);
+    transition:
+      transform 0.08s,
+      box-shadow 0.08s;
+    animation: wiggle 2.4s ease-in-out infinite;
+  }
+  .big:hover:not(:disabled) {
+    border-color: var(--ink);
+    filter: brightness(1.06);
+  }
+  .big:active:not(:disabled) {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 var(--ink);
   }
   .session {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 1rem;
-    justify-content: space-between;
+    gap: 0.6rem;
     margin-bottom: 0.75rem;
   }
-  .won {
-    color: var(--good);
-    font-weight: 700;
+  .pill {
+    padding: 0.15rem 0.9rem;
+    border-radius: 999px;
+    border: 2px solid var(--ink);
+    background: var(--surface);
+    font-weight: 800;
+    box-shadow: 0 3px 0 var(--ink);
+    font-variant-numeric: tabular-nums;
   }
-  .lost {
-    color: var(--bad);
-    font-weight: 700;
+  .pill.won {
+    background: #a8f0b4;
+    color: #2a1a3a;
+  }
+  .pill.lost {
+    background: #ffb3ad;
+    color: #2a1a3a;
   }
   .link {
+    margin-left: auto;
     border: none;
+    box-shadow: none;
     background: none;
     padding: 0;
     color: var(--muted);
     text-decoration: underline;
   }
+  .stage {
+    position: relative;
+  }
+  .banner {
+    position: absolute;
+    left: 50%;
+    top: 66%;
+    z-index: 7;
+    transform: translate(-50%, -50%) rotate(-3deg);
+    padding: 0.5rem 1.6rem;
+    border-radius: 1.1rem;
+    border: 3px solid #2a1a3a;
+    background: #fff;
+    color: #2a1a3a;
+    box-shadow: 0 6px 0 #2a1a3a;
+    white-space: nowrap;
+    pointer-events: none;
+    animation: slam 0.55s cubic-bezier(0.3, 1.6, 0.5, 1) 0.9s backwards;
+  }
+  .banner h2 {
+    margin: 0;
+    font-size: clamp(1.1rem, 4.5vw, 2rem);
+    font-weight: 900;
+  }
+  .banner.win {
+    background: linear-gradient(#ffe94d, #ffb02e);
+  }
+  .banner.loss {
+    background: #ffd0cf;
+  }
+  .winflash {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    border-radius: 1.6rem;
+    background: radial-gradient(circle, #fff 0, #ffe94d 40%, transparent 75%);
+    pointer-events: none;
+    opacity: 0;
+    animation: flash 0.7s ease-out 0.9s;
+  }
+  .controls {
+    min-height: 7.5rem;
+    margin-top: 0.9rem;
+  }
+  .controls.done {
+    min-height: 0;
+    margin-bottom: 1rem;
+  }
+  .skip {
+    border: 2px solid var(--ink);
+    border-radius: 999px;
+    font-weight: 800;
+    box-shadow: 0 3px 0 var(--ink);
+  }
+  .next {
+    animation: none;
+    font-size: 1.1rem;
+    padding: 0.6rem 1.6rem;
+  }
+  kbd {
+    font-size: 0.7rem;
+    opacity: 0.7;
+  }
   .coach-toggle {
     display: inline-flex;
     gap: 0.4rem;
-    margin-top: 0.6rem;
-    color: var(--muted);
+    margin-top: 0.7rem;
+    font-weight: 700;
   }
   .coach {
     padding: 0.6rem 0.9rem;
-    border-radius: 0.6rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
-  }
-  .result {
-    margin-top: 1rem;
-    padding: 1rem 1.2rem;
     border-radius: 0.9rem;
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: 2px solid var(--ink);
+    box-shadow: 0 3px 0 var(--ink);
   }
-  .head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-  }
-  .head h2 {
-    margin: 0;
-  }
-  .next {
-    background: var(--accent);
-    color: var(--on-accent);
-    border-color: var(--accent);
-    font-weight: 700;
+  .result {
+    margin-top: 0.5rem;
+    padding: 0.4rem 1.2rem 1rem;
+    border-radius: 1.1rem;
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    box-shadow: 0 4px 0 var(--ink);
   }
   .log {
     margin-top: 1rem;
@@ -226,5 +415,51 @@
   }
   .error {
     color: var(--bad);
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(1.2rem) scale(0.9);
+    }
+  }
+  @keyframes wiggle {
+    0%,
+    86%,
+    100% {
+      rotate: 0deg;
+    }
+    90% {
+      rotate: -2.5deg;
+    }
+    95% {
+      rotate: 2.5deg;
+    }
+  }
+  @keyframes slam {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -50%) rotate(-14deg) scale(2.6);
+    }
+  }
+  @keyframes flash {
+    0% {
+      opacity: 0.9;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  @media (pointer: coarse) {
+    kbd {
+      display: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cast li,
+    .big,
+    .banner,
+    .winflash {
+      animation: none;
+    }
   }
 </style>

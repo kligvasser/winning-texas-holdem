@@ -37,17 +37,18 @@
     position: absolute;
     left: 0;
     right: 0;
-    top: 0.55rem;
-    height: 6px;
-    border-radius: 3px;
-    background: var(--border);
+    top: 0.42rem;
+    height: 10px;
+    border-radius: 999px;
+    border: 2px solid var(--ink);
+    background: var(--surface);
   }
   .band {
     position: absolute;
     top: 0.55rem;
     height: 6px;
     border-radius: 3px;
-    background: color-mix(in srgb, var(--good) 45%, transparent);
+    background: var(--mint);
   }
   .mark {
     position: absolute;
@@ -62,12 +63,12 @@
   }
   .you {
     background: var(--bad);
-    width: 0.8rem;
-    height: 0.8rem;
-    top: 0.3rem;
-    margin-left: -0.4rem;
+    width: 1rem;
+    height: 1rem;
+    top: 0.2rem;
+    margin-left: -0.5rem;
     border-radius: 50%;
-    border: 2px solid var(--surface);
+    border: 2px solid var(--ink);
     transition: left 0.5s cubic-bezier(0.3, 1.3, 0.5, 1);
   }
   .you.close {

@@ -44,10 +44,15 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    padding: 1.25rem;
-    border-radius: 1rem;
-    background: radial-gradient(ellipse at center, var(--felt-light), var(--felt));
-    color: var(--felt-text);
+    padding: 1.7rem;
+    border-radius: 1.6rem;
+    border: 3px solid var(--ink);
+    box-shadow:
+      inset 0 0 0 0.5rem var(--wood),
+      inset 0 0 0 calc(0.5rem + 3px) var(--ink),
+      0 6px 0 var(--ink);
+    background: radial-gradient(ellipse at 50% 40%, #3fd07a, #1c9a52 70%, #15803f);
+    color: #fff;
     min-height: 3rem;
   }
   .felt:empty {
@@ -68,8 +73,11 @@
     font-size: 0.95rem;
   }
   .chips span {
-    background: rgb(0 0 0 / 0.25);
-    padding: 0.2rem 0.7rem;
+    background: var(--sun);
+    color: var(--on-bright);
+    border: 2px solid #2a1a3a;
+    box-shadow: 0 3px 0 #2a1a3a;
+    padding: 0.1rem 0.8rem;
     border-radius: 999px;
   }
   .lines {
@@ -81,8 +89,8 @@
     line-height: 1.5;
   }
   .prompt {
-    font-size: 1.15rem;
-    font-weight: 600;
+    font-size: 1.2rem;
+    font-weight: 800;
     margin: 1rem 0 0.75rem;
   }
 </style>

@@ -234,10 +234,12 @@ def test_scenario_steps_are_served_one_after_another(client):
 def test_play_flow_and_hand_review(client):
     styles = client.get("/api/play/styles").json()
     assert {s["key"] for s in styles} == {"nit", "tag", "lag", "station", "maniac"}
-    assert client.post("/api/play", json={"style": "shark"}).status_code == 404
-    state = client.post("/api/play", json={"style": "station", "seed": 2}).json()
+    assert all(s["character"] for s in styles)
+    state = client.post("/api/play", json={"seed": 2}).json()
     sid = state["id"]
     assert state["hand"]["hole"][0] is not None
+    assert len(state["seats"]) == 6
+    assert state["frames"]
     assert client.post("/api/play/nope/act", json={"kind": "check"}).status_code == 404
     assert client.post(f"/api/play/{sid}/next").status_code in (200, 400)
     for _ in range(40):
@@ -259,6 +261,7 @@ def test_play_flow_and_hand_review(client):
     hand_id = listing["hands"][0]["id"]
     detail = client.get(f"/api/hands/{hand_id}").json()
     assert detail["record"]["hand"]["hole"][1] is not None
+    assert detail["style"] == "6-max"
     assert client.get("/api/hands/999999").status_code == 404
 
     state = client.post(f"/api/play/{sid}/next").json()
@@ -266,7 +269,7 @@ def test_play_flow_and_hand_review(client):
 
 
 def test_play_sessions_are_capped(client):
-    first = client.post("/api/play", json={"style": "nit", "seed": 1}).json()["id"]
+    first = client.post("/api/play", json={"seed": 1}).json()["id"]
     for seed in range(25):
-        client.post("/api/play", json={"style": "nit", "seed": seed + 2})
+        client.post("/api/play", json={"seed": seed + 2})
     assert client.get(f"/api/play/{first}/coach").status_code == 404

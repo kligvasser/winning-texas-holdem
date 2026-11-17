@@ -141,6 +141,8 @@ export interface Activity {
 export interface PlayStyle {
   key: string
   name: string
+  /** The bot's name at the table ("Rocky"). */
+  character: string
   blurb: string
 }
 
@@ -154,18 +156,28 @@ export interface LoggedAction {
   to_call: number
 }
 
-export interface HandView {
+/** The table after one action. Seat 0 is you; the others sit clockwise. */
+export interface TableView {
   street: string
   button: number
+  positions: string[]
   board: string[]
   hole: (string[] | null)[]
+  /** What each visible hand holds in words ("Two Pair"), once there is a flop. */
+  made: (string | null)[]
   behind: number[]
   bets: number[]
+  folded: boolean[]
   pot: number
   current: number | null
   finished: boolean
   showdown: boolean
   net: number[] | null
+  winners: number[]
+  last: LoggedAction
+}
+
+export interface HandView extends TableView {
   log: LoggedAction[]
 }
 
@@ -186,7 +198,7 @@ export interface ReviewedDecision {
   pot_bb: number
   to_call_bb: number
   equity: number
-  range_share: number
+  opponents: number
   need: number | null
   loss_bb: number
   verdict: 'good' | 'leak' | 'mistake' | 'info'
@@ -195,8 +207,10 @@ export interface ReviewedDecision {
 
 export interface PlayState {
   id: string
-  style: PlayStyle
+  seats: PlayStyle[]
   hand: HandView
+  /** Every table position since your last move, for step-by-step animation. */
+  frames: TableView[]
   legal: Legal | null
   hands_played: number
   net_bb: number
@@ -209,7 +223,7 @@ export interface Coach {
   pot_bb: number
   need: number | null
   equity: number
-  range_share: number
+  opponents: number
 }
 
 export interface HandSummary {
@@ -232,7 +246,7 @@ export interface PlayStats {
 }
 
 export interface HandDetail extends HandSummary {
-  record: { style: string; hand: HandView; net_bb: number; decisions: ReviewedDecision[] }
+  record: { style: string; seats: PlayStyle[]; hand: HandView; net_bb: number; decisions: ReviewedDecision[] }
 }
 
 export interface DrillStats {
@@ -297,8 +311,7 @@ export const api = {
     }),
   leaks: () => request<SpotLeak[]>('/api/preflop/leaks'),
   styles: () => request<PlayStyle[]>('/api/play/styles'),
-  play: (style: string) =>
-    request<PlayState>('/api/play', { method: 'POST', body: JSON.stringify({ style }) }),
+  play: () => request<PlayState>('/api/play', { method: 'POST', body: '{}' }),
   act: (id: string, kind: string, to?: number) =>
     request<PlayState>(`/api/play/${id}/act`, {
       method: 'POST',

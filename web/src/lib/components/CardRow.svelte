@@ -26,6 +26,7 @@
   .label {
     font-size: 0.75rem;
     text-transform: uppercase;
+    font-weight: 800;
     letter-spacing: 0.08em;
     color: var(--felt-muted);
   }

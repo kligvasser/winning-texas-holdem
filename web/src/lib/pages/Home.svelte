@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api, type Activity, type DailyPlan } from '../api'
+  import Avatar from '../components/Avatar.svelte'
   import GoalRing from '../components/GoalRing.svelte'
   import PlayingCard from '../components/PlayingCard.svelte'
   import { DAILY_GOAL } from '../format'
@@ -31,6 +32,7 @@
   <div class="fan" aria-hidden="true">
     <PlayingCard code="As" />
     <PlayingCard code="Kh" order={1} />
+    <span class="mascot"><Avatar kind="hero" mood="happy" label="Mascot" /></span>
   </div>
   <div>
     <h1>Winning Texas Hold'em</h1>
@@ -82,7 +84,7 @@
   </a>
   <a class="tile" href={href('play')}>
     <strong>🤖 Play</strong>
-    <span>Heads-up against a nit, a maniac or a calling station; every decision reviewed.</span>
+    <span>A six-seat table against five bots with their own styles; every decision reviewed.</span>
   </a>
   <a class="tile" href={href('stats')}>
     <strong>📈 Progress</strong>
@@ -96,9 +98,14 @@
     gap: 2rem;
     align-items: center;
     padding: 2rem;
-    border-radius: 1.25rem;
-    background: radial-gradient(ellipse at 30% 40%, var(--felt-light), var(--felt));
-    color: var(--felt-text);
+    border-radius: 1.6rem;
+    border: 3px solid var(--ink);
+    box-shadow:
+      inset 0 0 0 0.5rem var(--wood),
+      inset 0 0 0 calc(0.5rem + 3px) var(--ink),
+      0 6px 0 var(--ink);
+    background: radial-gradient(ellipse at 30% 40%, #3fd07a, #1c9a52 70%, #15803f);
+    color: #fff;
     margin-bottom: 1rem;
   }
   .hero p {
@@ -106,6 +113,7 @@
     opacity: 0.92;
   }
   .fan {
+    position: relative;
     display: flex;
     --card-w: 4.5rem;
   }
@@ -115,24 +123,39 @@
   .fan :global(.card:first-child) {
     transform: rotate(-8deg);
   }
+  .mascot {
+    position: absolute;
+    right: -1.2rem;
+    bottom: -1.4rem;
+    width: 4.4rem;
+    height: 4.4rem;
+  }
   .cta {
     display: inline-block;
     padding: 0.7rem 1.3rem;
-    border-radius: 0.6rem;
-    background: #f2b544;
-    color: #1d1505;
-    font-weight: 700;
+    border-radius: 1rem;
+    border: 3px solid var(--ink);
+    background: linear-gradient(#ffe94d, var(--sun-deep));
+    color: var(--on-bright);
+    font-weight: 900;
+    font-size: 1.1rem;
     text-decoration: none;
-    box-shadow: 0 4px 14px rgb(0 0 0 / 0.25);
-    transition: transform 0.12s ease;
+    box-shadow: 0 5px 0 var(--ink);
+    transition:
+      transform 0.08s,
+      box-shadow 0.08s;
   }
   .cta:hover {
-    transform: translateY(-2px);
+    filter: brightness(1.06);
+  }
+  .cta:active {
+    transform: translateY(4px);
+    box-shadow: 0 1px 0 var(--ink);
   }
   .dashboard {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-    gap: 0.75rem;
+    gap: 1rem;
     margin-bottom: 1rem;
   }
   .stat {
@@ -142,17 +165,22 @@
     justify-content: center;
     gap: 0.35rem;
     padding: 1rem;
-    border-radius: 0.9rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    border-radius: 1.1rem;
+    background: color-mix(in srgb, var(--tint, transparent) 30%, var(--surface));
+    border: var(--line);
+    box-shadow: var(--drop);
     text-align: center;
   }
+  .stat:nth-child(1) { --tint: var(--mint); }
+  .stat:nth-child(2) { --tint: var(--tomato); }
+  .stat:nth-child(3) { --tint: var(--skyblue); }
+  .stat:nth-child(4) { --tint: var(--grape); }
   .stat strong {
     font-size: 1.9rem;
     font-variant-numeric: tabular-nums;
   }
   .stat span {
-    color: var(--muted);
+    font-weight: 700;
     font-size: 0.85rem;
   }
   .flame.cold {
@@ -162,28 +190,39 @@
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-    gap: 0.75rem;
+    gap: 1rem;
   }
   .tile {
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
     padding: 1rem 1.1rem;
-    border-radius: 0.75rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    border-radius: 1.1rem;
+    background: color-mix(in srgb, var(--tint) 26%, var(--surface));
+    border: var(--line);
+    box-shadow: var(--drop);
     color: inherit;
+    font-weight: 400;
     text-decoration: none;
     transition:
       transform 0.12s ease,
-      border-color 0.15s;
+      box-shadow 0.12s ease;
   }
+  .tile:nth-child(6n + 1) { --tint: var(--skyblue); }
+  .tile:nth-child(6n + 2) { --tint: var(--mint); }
+  .tile:nth-child(6n + 3) { --tint: var(--sun); }
+  .tile:nth-child(6n + 4) { --tint: var(--grape); }
+  .tile:nth-child(6n + 5) { --tint: var(--tomato); }
+  .tile:nth-child(6n) { --tint: var(--sun-deep); }
   .tile:hover {
-    transform: translateY(-2px);
-    border-color: var(--accent);
+    transform: translateY(-3px);
+    box-shadow: 0 7px 0 var(--ink);
+  }
+  .tile strong {
+    font-size: 1.1rem;
+    font-weight: 900;
   }
   .tile span {
-    color: var(--muted);
     font-size: 0.92rem;
   }
   @media (max-width: 600px) {

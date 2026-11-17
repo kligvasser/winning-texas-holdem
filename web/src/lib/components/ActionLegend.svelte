@@ -35,8 +35,8 @@
   .swatch {
     width: 0.9rem;
     height: 0.9rem;
-    border-radius: 3px;
-    border: 1px solid var(--border);
+    border-radius: 4px;
+    border: 2px solid var(--ink);
   }
   .freq {
     color: var(--muted);

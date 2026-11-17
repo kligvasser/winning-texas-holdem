@@ -26,12 +26,12 @@
     position: relative;
     width: var(--card-w, 3.4rem);
     height: calc(var(--card-w, 3.4rem) * 1.4);
-    border-radius: 0.45rem;
+    border-radius: 0.55rem;
     background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    box-shadow: 0 2px 6px rgb(0 0 0 / 0.25);
+    border: 2px solid #2a1a3a;
+    box-shadow: 0 3px 0 rgb(42 26 58 / 0.6);
     color: var(--suit-color);
-    font-weight: 700;
+    font-weight: 900;
     flex: none;
     user-select: none;
     transition:
@@ -53,8 +53,8 @@
   .highlight {
     transform: translateY(-4px);
     box-shadow:
-      0 0 0 3px var(--accent),
-      0 6px 14px rgb(0 0 0 / 0.3);
+      0 0 0 3px var(--sun),
+      0 7px 0 rgb(42 26 58 / 0.6);
   }
   .corner {
     position: absolute;

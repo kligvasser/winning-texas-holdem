@@ -36,7 +36,7 @@
 </script>
 
 <header class="topbar">
-  <a class="brand" href={href('home')}>♠ Hold'em Trainer</a>
+  <a class="brand" href={href('home')}><span class="logo">♠</span> Hold'em Trainer</a>
   <nav>
     {#each NAV as item (item.page)}
       <a href={href(item.page)} aria-current={route.page === item.page ? 'page' : undefined}>
@@ -88,12 +88,29 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 0.5rem;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
+    padding: 0.6rem 1rem;
+    border-bottom: 3px solid var(--ink);
+    background: var(--bar);
+  }
+  .logo {
+    display: inline-grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    border: 3px dashed #fff;
+    outline: 2px solid var(--ink);
+    background: #e5484d;
+    color: #fff;
+    box-shadow: 0 3px 0 var(--ink);
+    transition: transform 0.4s cubic-bezier(0.3, 1.6, 0.5, 1);
+  }
+  .brand:hover .logo {
+    transform: rotate(180deg);
   }
   .brand {
-    font-weight: 800;
+    font-weight: 900;
+    font-size: 1.2rem;
     color: inherit;
     text-decoration: none;
   }
@@ -106,15 +123,21 @@
   }
   nav a {
     white-space: nowrap;
-    padding: 0.4rem 0.75rem;
-    border-radius: 0.5rem;
-    color: var(--muted);
+    padding: 0.3rem 0.8rem;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    color: var(--text);
+    font-weight: 800;
     text-decoration: none;
   }
+  nav a:hover {
+    background: color-mix(in srgb, var(--surface) 55%, transparent);
+  }
   nav a[aria-current='page'] {
-    background: var(--accent-soft);
+    background: var(--surface);
+    border-color: var(--ink);
     color: var(--text);
-    font-weight: 600;
+    box-shadow: 0 2px 0 var(--ink);
   }
   @media (max-width: 520px) {
     nav a {
@@ -124,6 +147,6 @@
   main {
     max-width: 960px;
     margin: 0 auto;
-    padding: 1.5rem 1rem 4rem;
+    padding: 1.5rem 1rem 8rem;
   }
 </style>

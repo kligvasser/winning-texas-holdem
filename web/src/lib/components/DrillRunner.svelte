@@ -237,7 +237,7 @@
     min-height: 1.9rem;
   }
   .drill-title {
-    font-weight: 600;
+    font-weight: 800;
     color: var(--muted);
   }
   .right {
@@ -252,21 +252,25 @@
   .combo {
     padding: 0.15rem 0.6rem;
     border-radius: 999px;
-    background: color-mix(in srgb, #f2b544 25%, transparent);
-    font-weight: 700;
+    border: var(--line);
+    box-shadow: var(--drop-sm);
+    background: var(--sun);
+    color: var(--on-bright);
+    font-weight: 900;
     font-variant-numeric: tabular-nums;
     animation: pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
   }
   .progress {
-    height: 6px;
-    border-radius: 3px;
-    background: var(--border);
+    height: 14px;
+    border-radius: 999px;
+    border: 2px solid var(--ink);
+    background: var(--surface);
     margin-bottom: 1rem;
     overflow: hidden;
   }
   .progress div {
     height: 100%;
-    background: var(--accent);
+    background: repeating-linear-gradient(-45deg, var(--sun) 0 8px, var(--sun-deep) 8px 16px);
     transition: width 0.3s ease;
   }
   .count {
@@ -281,8 +285,10 @@
     gap: 1rem;
     margin-top: 0.75rem;
     padding: 0.6rem 0.9rem;
-    border-radius: 0.6rem;
-    background: color-mix(in srgb, var(--bad) 12%, var(--surface));
+    border-radius: 0.9rem;
+    border: var(--line);
+    box-shadow: var(--drop-sm);
+    background: color-mix(in srgb, var(--tomato) 30%, var(--surface));
   }
   .secondary {
     display: flex;
@@ -291,6 +297,7 @@
   }
   .link {
     border: none;
+    box-shadow: none;
     background: none;
     padding: 0;
     color: var(--muted);
@@ -298,9 +305,10 @@
   }
   .error {
     padding: 1rem 1.25rem;
-    border-radius: 0.75rem;
-    background: var(--surface);
-    border-left: 5px solid var(--bad);
+    border-radius: 1.1rem;
+    background: color-mix(in srgb, var(--tomato) 22%, var(--surface));
+    border: var(--line);
+    box-shadow: var(--drop);
   }
   @keyframes pop {
     from {

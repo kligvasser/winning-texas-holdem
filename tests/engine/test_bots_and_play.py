@@ -6,9 +6,31 @@ from sqlalchemy.orm import Session
 
 from holdem.core.cards import parse_cards
 from holdem.db import hand_summary, play_stats, save_hand
-from holdem.engine.bots import STYLES, Bot, estimated_range, hand_class, percentile, top_share_range
+from holdem.engine.bots import (
+    STYLES,
+    Bot,
+    SeatBot,
+    call_share,
+    estimated_range,
+    hand_class,
+    limp_share,
+    open_share,
+    percentile,
+    seat_range,
+    three_bet_share,
+    top_share_range,
+)
 from holdem.engine.headsup import Action, HeadsUpHand
-from holdem.engine.play import BOT, HERO, PlaySession, bb, equity_against, new_session, review
+from holdem.engine.play import (
+    HERO,
+    PlaySession,
+    bb,
+    equity_against,
+    new_session,
+    opponents_in_pot,
+    review,
+)
+from holdem.engine.table import TableHand
 
 
 def combo(text):
@@ -44,7 +66,7 @@ def test_hand_classes(hole, board, expected):
 def test_every_style_is_described():
     for style in STYLES.values():
         public = style.public()
-        assert public["name"] and public["blurb"]
+        assert public["name"] and public["blurb"] and public["character"]
         assert style.open + style.limp > 0
 
 
@@ -102,92 +124,165 @@ def test_estimated_ranges_follow_preflop_actions():
     assert len(estimated_range(tag, checked, bot, 0)) == 169
 
 
-def test_session_plays_reviews_and_alternates_the_button():
-    play = new_session("station", seed=3)
+def raise_log(*entries):
+    return [Action("preflop", p, k, 0, 0, 0, 0) for p, k in entries]
+
+
+def test_seat_ranges_follow_position_and_preflop_actions():
+    tag = STYLES["tag"]
+    station = STYLES["station"]
+    opened = raise_log((3, "post"), (1, "raise"))
+    assert seat_range(tag, opened, 1, "UTG") == top_share_range(open_share(tag, "UTG"))
+    assert len(seat_range(tag, opened, 1, "UTG")) < len(seat_range(tag, opened, 1, "BTN"))
+    three_bet = raise_log((1, "raise"), (2, "raise"))
+    assert seat_range(tag, three_bet, 2, "CO") == top_share_range(three_bet_share(tag))
+    cold_four = raise_log((1, "raise"), (2, "raise"), (3, "raise"))
+    assert seat_range(tag, cold_four, 3, "BTN") == top_share_range(tag.four_bet)
+    five_bet = raise_log((1, "raise"), (2, "raise"), (1, "raise"))
+    assert seat_range(tag, five_bet, 1, "CO") == top_share_range(tag.four_bet)
+    called_3bet = raise_log((1, "raise"), (2, "raise"), (1, "call"))
+    assert seat_range(tag, called_3bet, 1, "BTN") == top_share_range(tag.call_3bet)
+    limp = raise_log((1, "call"))
+    assert seat_range(station, limp, 1, "HJ") == top_share_range(limp_share(station))
+    called = raise_log((1, "raise"), (2, "call"))
+    assert seat_range(tag, called, 2, "BB") == top_share_range(call_share(tag, "BB"))
+    assert len(seat_range(tag, called, 2, "CO")) < len(seat_range(tag, called, 2, "BB"))
+    cold_call = raise_log((1, "raise"), (2, "raise"), (3, "call"))
+    assert seat_range(tag, cold_call, 3, "BTN") == top_share_range(tag.call_3bet)
+    limp_call = raise_log((1, "call"), (2, "raise"), (1, "call"))
+    assert seat_range(station, limp_call, 1, "HJ") == top_share_range(limp_share(station))
+    waiting = raise_log((1, "raise"), (2, "check"))
+    assert len(seat_range(tag, waiting, 4, "BB")) == 169
+    assert len(seat_range(tag, waiting, 2, "BB")) == 169
+
+
+@pytest.mark.parametrize("seats", [3, 6])
+def test_seat_bots_only_make_legal_moves(seats):
+    styles = list(STYLES.values())
+    rng = random.Random(seats)
+    for seed in range(150):
+        short = seed % 3 == 0
+        stacks = [rng.randint(3, 40) if short else 200 for _ in range(seats)]
+        hand = TableHand(stacks, seed % seats, random.Random(seed))
+        bots = [SeatBot(styles[(seed + s) % 5], random.Random(seed + s)) for s in range(seats)]
+        play_out(hand, bots)
+        assert sum(hand.net()) == 0
+
+
+def play_hand(play, rng):
+    while not play.hand.finished:
+        legal = play.hand.legal()
+        roll = rng.random()
+        if legal.can_raise and roll < 0.15:
+            play.act("bet" if max(play.hand.bets) == 0 else "raise", legal.min_raise_to)
+        elif legal.can_check:
+            play.act("check")
+        else:
+            play.act("call" if roll < 0.8 else "fold")
+
+
+def test_session_plays_reviews_and_moves_the_button():
+    play = new_session(seed=3)
     assert play.hand.button == 0
+    assert play.seats()[0]["key"] == "hero"
+    assert {s["key"] for s in play.seats()[1:]} == set(STYLES)
     rng = random.Random(0)
-    for _ in range(6):
-        while not play.hand.finished:
-            legal = play.hand.legal()
-            play.act("check" if legal.can_check else rng.choice(["call", "fold"]))
+    for played in range(7):
+        assert play.hand.button == played % 6
+        first = play.state()
+        assert first["frames"][-1]["last"] == first["hand"]["last"]
+        assert "log" not in first["frames"][0]
+        play_hand(play, rng)
         state = play.state()
         assert state["legal"] is None
         assert state["hand"]["finished"]
+        assert state["frames"]
         record = play.record()
-        assert record["style"] == "station"
-        assert record["hand"]["hole"][1] is not None  # the record always shows the bot's cards
+        assert record["style"] == "6-max"
+        assert all(cards is not None for cards in record["hand"]["hole"])
+        assert len(record["seats"]) == 6
         for d in state["decisions"]:
             assert d["verdict"] in ("good", "leak", "mistake", "info")
-        button = play.hand.button
         play.new_hand()
-        assert play.hand.button == 1 - button
-    assert play.hands_played == 6
+    assert play.hands_played >= 7
 
 
 def test_not_your_turn_and_coach():
-    play = new_session("tag", seed=5)
-    while play.hand.current != HERO and not play.hand.finished:
+    play = new_session(seed=5)
+    while play.hand.finished:
         play.new_hand()
     coach = play.coach()
     assert 0 <= coach["equity"] <= 1
+    assert coach["opponents"] >= 1
     assert play.state()["legal"]["max_raise_to"] > 0
-    play.act("fold") if not play.hand.legal().can_check else play.act("check")
     while not play.hand.finished:
-        legal = play.hand.legal()
-        play.act("check" if legal.can_check else "fold")
+        play.act("check" if play.hand.legal().can_check else "fold")
     with pytest.raises(ValueError):
         play.act("check")
     with pytest.raises(ValueError):
         play.coach()
-    with pytest.raises(KeyError):
-        new_session("shark")
-    assert new_session("nit").seed >= 0
+    assert new_session().seed >= 0
 
 
 def test_review_grades_calls_and_folds(monkeypatch):
-    style = STYLES["tag"]
-    hand = HeadsUpHand([200, 200], 1, random.Random(4))
-    hand.act("raise", 6)  # the bot (button) opens
-    hand.act("call")  # hero calls
-    hand.act("check")
+    styles = list(STYLES.values())
+    hand = TableHand([200] * 3, 0, random.Random(4))
+    hand.act("call")  # hero limps the button
+    hand.act("raise", 8)
+    hand.act("fold")
+    hand.act("call")  # hero calls the raise
     hand.act("bet", 10)
     hand.act("fold")
-    monkeypatch.setattr("holdem.engine.play.equity_against", lambda *a: (0.9, 0.5))
-    decisions = review(style, hand)
-    kinds = [d.action for d in decisions]
-    assert kinds == ["call", "check", "fold"]
+    monkeypatch.setattr("holdem.engine.play.equity_against", lambda *a: (0.9, 1))
+    decisions = review(styles, hand)
+    assert [d.action for d in decisions] == ["call", "call", "fold"]
     fold = decisions[-1]
     assert fold.verdict == "mistake"  # 90% equity and folded
     assert fold.loss_bb > 1
-    monkeypatch.setattr("holdem.engine.play.equity_against", lambda *a: (0.02, 0.5))
-    call = review(style, hand)[0]
+    assert "the bot's likely range" in fold.note
+    monkeypatch.setattr("holdem.engine.play.equity_against", lambda *a: (0.02, 2))
+    call = review(styles, hand)[1]
     assert call.verdict in ("leak", "mistake")
-    monkeypatch.setattr("holdem.engine.play.equity_against", lambda *a: (0.3, 0.5))
-    assert review(style, hand)[0].verdict == "good"
+    assert "2 bots' likely ranges" in call.note
+    monkeypatch.setattr("holdem.engine.play.equity_against", lambda *a: (0.5, 1))
+    assert review(styles, hand)[1].verdict == "good"
 
 
-def test_raises_are_shown_but_not_graded(monkeypatch):
-    hand = HeadsUpHand([200, 200], 1, random.Random(4))
+def test_raises_and_checks_are_shown_but_not_graded(monkeypatch):
+    hand = TableHand([200] * 3, 2, random.Random(4))  # hero is the small blind
     hand.act("raise", 6)
-    hand.act("raise", 20)
+    hand.act("raise", 20)  # hero re-raises
     hand.act("fold")
-    monkeypatch.setattr("holdem.engine.play.equity_against", lambda *a: (0.5, 0.5))
-    [decision] = review(STYLES["tag"], hand)
-    assert decision.verdict == "info"
-    assert "not graded" in decision.note
-    assert decision.public()["need"] is not None
+    hand.act("call")
+    hand.act("check")  # hero checks the flop
+    monkeypatch.setattr("holdem.engine.play.equity_against", lambda *a: (0.5, 1))
+    raised, checked = review(list(STYLES.values()), hand)
+    assert raised.verdict == "info"
+    assert "not graded" in raised.note
+    assert raised.public()["need"] is not None
+    assert checked.verdict == "info"
+    assert checked.public()["need"] is None
 
 
-def test_equity_against_uses_the_estimated_range():
-    hand = HeadsUpHand([200, 200], 0, random.Random(1))
-    hand.act("raise", 6)
-    equity, share = equity_against(STYLES["nit"], hand, hand.log, "preflop")
+def test_equity_is_measured_against_the_players_in_the_pot():
+    styles = list(STYLES.values())
+    hand = TableHand([200] * 6, 0, random.Random(1))
+    assert opponents_in_pot(hand, hand.log, "preflop") == [2]  # nobody in yet: the big blind
+    hand.act("raise", 6)  # seat 3
+    hand.act("fold")
+    hand.act("call")  # seat 5
+    assert opponents_in_pot(hand, hand.log, "preflop") == [3, 5]
+    equity, opponents = equity_against(styles, hand, hand.log, "preflop")
     assert 0 < equity < 1
-    assert share == pytest.approx(1.0)  # the bot has not acted yet
+    assert opponents == 2
+    hand.act("call")  # hero
+    hand.act("fold")
+    hand.act("call")  # the big blind
+    assert opponents_in_pot(hand, hand.log, "flop") == [2, 3, 5]
 
 
 def test_storage_summary_and_stats(engine):
-    play = new_session("maniac", seed=9)
+    play = new_session(seed=9)
     with Session(engine) as session:
         assert play_stats(session)["hands"] == 0
         rows = []
@@ -201,7 +296,7 @@ def test_storage_summary_and_stats(engine):
             rows.append(save_hand(session, play.record(), datetime(2026, 11, 16, tzinfo=UTC)))
             play.new_hand()
         summary = hand_summary(rows[-1])
-        assert summary["style"] == "maniac"
+        assert summary["style"] == "6-max"
         assert len(summary["hole"]) == 2
         stats = play_stats(session)
     assert stats["hands"] == 3
@@ -212,8 +307,8 @@ def test_storage_summary_and_stats(engine):
 
 def test_bb_helper_and_constants():
     assert bb(5) == 2.5
-    assert (HERO, BOT) == (0, 1)
-    assert isinstance(new_session("lag", seed=1), PlaySession)
+    assert HERO == 0
+    assert isinstance(new_session(seed=1), PlaySession)
 
 
 def test_decide_samples_from_options_with_a_safe_fallback():

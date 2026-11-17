@@ -63,41 +63,57 @@
     flex-wrap: wrap;
     gap: 0.5rem;
   }
-  .speed {
-    background: #f2b544;
-    color: #1d1505;
+  .mixed.speed {
+    background: linear-gradient(#ffe94d, var(--sun-deep));
+  }
+  .mixed:active {
+    transform: translateY(3px);
+    box-shadow: none;
   }
   .mixed {
     display: inline-block;
     margin: 0.5rem 0 1rem;
     padding: 0.6rem 1.1rem;
-    border-radius: 0.6rem;
-    background: var(--accent);
-    color: var(--on-accent);
-    font-weight: 600;
+    border-radius: 0.9rem;
+    background: linear-gradient(var(--mint), #3fc66b);
+    color: var(--on-bright);
+    border: var(--line);
+    box-shadow: var(--drop-sm);
+    font-weight: 800;
     text-decoration: none;
   }
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-    gap: 0.75rem;
+    gap: 1rem;
   }
   .tile {
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
     padding: 0.9rem 1rem;
-    border-radius: 0.75rem;
+    border-radius: 1.1rem;
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: var(--line);
+    box-shadow: var(--drop);
     color: inherit;
+    font-weight: 400;
     text-decoration: none;
-    transition: border-color 0.15s;
+    transition:
+      transform 0.12s ease,
+      box-shadow 0.12s ease;
   }
   .tile:hover {
-    border-color: var(--accent);
+    transform: translateY(-3px);
+    box-shadow: 0 7px 0 var(--ink);
   }
-  .tile span {
+  .tile strong {
+    font-weight: 900;
+  }
+  .bolt {
+    font-size: 0.9rem;
+  }
+  .tile > span {
     font-size: 0.9rem;
     color: var(--muted);
   }

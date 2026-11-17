@@ -145,6 +145,9 @@
     font-size: 1.3rem;
     width: 9rem;
     padding: 0.5rem 0.75rem;
+    font-weight: 800;
+    border-width: 3px;
+    box-shadow: inset 0 3px 0 rgb(0 0 0 / 0.08);
   }
   input[aria-invalid='true'] {
     border-color: var(--bad);
@@ -164,21 +167,13 @@
     align-items: center;
     text-align: left;
     padding: 0.7rem 1rem;
-    transition:
-      transform 0.08s ease,
-      border-color 0.15s;
-  }
-  .choices button:active:not(:disabled) {
-    transform: scale(0.97);
   }
   .choices button.right {
-    border-color: var(--good);
-    box-shadow: inset 0 0 0 1px var(--good);
+    background: color-mix(in srgb, var(--mint) 45%, var(--surface));
     opacity: 1;
   }
   .choices button.wrong {
-    border-color: var(--bad);
-    box-shadow: inset 0 0 0 1px var(--bad);
+    background: color-mix(in srgb, var(--tomato) 40%, var(--surface));
     opacity: 1;
   }
   .mark {
@@ -193,6 +188,10 @@
   }
   kbd {
     font-size: 0.75rem;
+    min-width: 1.3rem;
+    text-align: center;
+    border-radius: 0.4rem;
+    border: 1.5px solid currentColor;
     color: var(--muted);
   }
   @media (pointer: coarse) {

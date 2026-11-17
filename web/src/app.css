@@ -1,18 +1,19 @@
 :root {
   color-scheme: light dark;
-  --bg: #f5f6f4;
+  --ink: #2a1a3a;
+  --bg: #e9f6ff;
   --surface: #ffffff;
-  --border: #dfe3df;
-  --text: #17201b;
-  --muted: #5d6b63;
-  --accent: #1f7a4d;
-  --accent-soft: #dcefe4;
+  --border: #cbd9ea;
+  --text: #2a1a3a;
+  --muted: #5a5670;
+  --accent: #1f8a45;
+  --accent-soft: #ffe58a;
   --on-accent: #ffffff;
-  --good: #1f7a4d;
-  --bad: #b3261e;
+  --good: #1f8a45;
+  --bad: #c62f27;
   --info: #1d5fa8;
-  --felt: #0d4d2e;
-  --felt-light: #17734a;
+  --felt: #15803f;
+  --felt-light: #2fbf6b;
   --felt-text: #f2f7f3;
   --felt-muted: #bcd9c8;
   --card-bg: #ffffff;
@@ -27,7 +28,26 @@
   --act-fold-text: #4f5a54;
   --act-on-text: #ffffff;
   --grid-gap: #cfd5d0;
+  --on-bright: #2a1a3a;
+  --sun: #ffd84a;
+  --sun-deep: #ffb02e;
+  --mint: #6fe08d;
+  --tomato: #ff7a6b;
+  --skyblue: #8fd0ff;
+  --grape: #cdb0ff;
+  --wood: #b5722f;
+  --bar: #ffd84a;
+  --bg-top: #bfe6ff;
+  --hill-1: #8be06a;
+  --hill-2: #6fcf52;
+  --line: 2px solid var(--ink);
+  --drop: 0 4px 0 var(--ink);
+  --drop-sm: 0 3px 0 var(--ink);
   font-family:
+    ui-rounded,
+    'SF Pro Rounded',
+    'Nunito',
+    'Varela Round',
     system-ui,
     -apple-system,
     'Segoe UI',
@@ -38,25 +58,30 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1412;
-    --surface: #18201c;
-    --border: #2b3530;
-    --text: #e7ece9;
-    --muted: #98a69e;
-    --accent: #37a46c;
-    --accent-soft: #1f3a2b;
-    --on-accent: #08130d;
-    --good: #4cc282;
-    --bad: #ef6f66;
-    --info: #6aa8ef;
-    --felt: #0a3d24;
-    --felt-light: #125c39;
+    --ink: #0b0818;
+    --bg: #171a33;
+    --surface: #242848;
+    --border: #3a3f66;
+    --text: #eef0ff;
+    --muted: #a9adcf;
+    --accent: #4fd67f;
+    --accent-soft: #4a3f8a;
+    --on-accent: #0b0818;
+    --good: #4fd67f;
+    --bad: #ff7b72;
+    --info: #7db4ff;
+    --felt: #0f6a34;
+    --felt-light: #1f9a54;
     --card-bg: #f7f7f2;
     --act-raise: #c4554a;
     --act-call: #3d8656;
     --act-fold: #27302b;
     --act-fold-text: #a9b6ae;
     --grid-gap: #151b18;
+    --bg-top: #2a2f5c;
+    --bar: #2e3360;
+    --hill-1: #1f5a3a;
+    --hill-2: #17472e;
   }
 }
 
@@ -64,23 +89,37 @@
   box-sizing: border-box;
 }
 
+html {
+  min-height: 100%;
+}
+
 body {
   margin: 0;
-  background: var(--bg);
   min-width: 320px;
+  min-height: 100vh;
+  /* Sky on top, two green hills at the very bottom of the page. */
+  background:
+    radial-gradient(ellipse 45% 4.5rem at 12% 100%, var(--hill-2) 98%, transparent 100%) no-repeat,
+    radial-gradient(ellipse 60% 6rem at 78% 100%, var(--hill-1) 98%, transparent 100%) no-repeat,
+    linear-gradient(var(--bg-top), var(--bg) 22rem) no-repeat,
+    var(--bg);
 }
 
 a {
   color: var(--accent);
+  font-weight: 700;
 }
 
 h1 {
-  font-size: 1.9rem;
+  font-size: 2.2rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
   margin: 0.25rem 0 0.75rem;
 }
 
 h2 {
-  font-size: 1.15rem;
+  font-size: 1.2rem;
+  font-weight: 900;
   margin: 1.5rem 0 0.75rem;
 }
 
@@ -91,18 +130,26 @@ input {
 }
 
 button {
-  padding: 0.55rem 1rem;
-  border-radius: 0.55rem;
-  border: 1px solid var(--border);
+  padding: 0.55rem 1.1rem;
+  border-radius: 0.9rem;
+  border: var(--line);
+  font-weight: 800;
   background: var(--surface);
+  box-shadow: var(--drop-sm);
   cursor: pointer;
   transition:
-    border-color 0.15s,
-    background 0.15s;
+    transform 0.07s,
+    box-shadow 0.07s,
+    filter 0.15s;
 }
 
 button:hover:not(:disabled) {
-  border-color: var(--accent);
+  filter: brightness(1.06);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--ink);
 }
 
 button:disabled {
@@ -111,18 +158,23 @@ button:disabled {
 }
 
 button[type='submit'] {
-  background: var(--accent);
-  color: var(--on-accent);
-  border-color: var(--accent);
+  background: linear-gradient(var(--mint), #3fc66b);
+  color: var(--on-bright);
 }
 
 input {
-  border: 1px solid var(--border);
-  border-radius: 0.55rem;
+  border: var(--line);
+  border-radius: 0.8rem;
   background: var(--surface);
 }
 
+input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
 :focus-visible {
-  outline: 3px solid var(--accent);
+  outline: 3px solid var(--info);
   outline-offset: 2px;
 }

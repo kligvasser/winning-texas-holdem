@@ -57,13 +57,14 @@
   .others a {
     padding: 0.4rem 0.8rem;
     border-radius: 999px;
-    border: 1px solid var(--border);
+    border: var(--line);
+    box-shadow: var(--drop-sm);
     background: var(--surface);
     color: inherit;
     text-decoration: none;
   }
   .others a[aria-current='page'] {
-    border-color: var(--accent);
-    background: var(--accent-soft);
+    background: var(--sun);
+    color: var(--on-bright);
   }
 </style>

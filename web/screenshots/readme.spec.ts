@@ -103,17 +103,19 @@ test('readme screenshots', async ({ page }) => {
   await page.screenshot({ animations: 'disabled', path: `${OUT}/speed-round.png` })
 
   await page.goto('/#/play')
-  await page.getByRole('button', { name: /Calling station/ }).click()
+  await page.getByRole('button', { name: 'Deal me in!' }).click()
+  await page.locator('[aria-label="Your action"]').waitFor()
   await expect(page.getByRole('region', { name: 'Poker table' })).toBeVisible()
   await page.getByRole('checkbox', { name: 'Coach' }).check()
   await expect(page.getByLabel('Coach', { exact: true }).and(page.locator('p'))).toBeVisible()
   await page.screenshot({ animations: 'disabled', path: `${OUT}/play-table.png`, fullPage: true })
   const result = page.getByRole('region', { name: 'Hand result' })
-  for (let i = 0; i < 15 && !(await result.isVisible()); i += 1) {
-    const ready = page.locator('[aria-label="Your action"] button:enabled')
-    await expect.poll(async () => (await result.isVisible()) || (await ready.count()) > 0).toBe(true)
+  const move = page.locator('[aria-label="Your action"] button:enabled', { hasText: /^(Call|Check)/ })
+  for (let i = 0; i < 15; i += 1) {
+    await expect(result.or(move.first()).first()).toBeVisible({ timeout: 30_000 })
     if (await result.isVisible()) break
-    await page.getByRole('button', { name: /^(Call|Check)/ }).first().click()
+    await move.first().click()
+    await expect(move.first()).toBeHidden()
   }
   await expect(result).toBeVisible()
   await page.screenshot({ animations: 'disabled', path: `${OUT}/play-review.png`, fullPage: true })

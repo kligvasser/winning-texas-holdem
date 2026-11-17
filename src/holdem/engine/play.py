@@ -1,9 +1,9 @@
-"""A heads-up session against one bot, and the review of every decision you made.
+"""A six-max session against five bots, one of each style, and a review of your decisions.
 
-Stacks reset to 100bb each hand (a cash game with automatic top-ups). After each hand, every
-decision where you faced a bet is graded by your equity against the bot's estimated range (its
-preflop range from its style and actions) compared with the price. This is an estimate: it ignores
-later betting and narrows the bot's range by preflop actions only.
+Stacks reset to 100bb each hand (a cash game with automatic top-ups) and the button moves one seat
+per hand. After each hand, every decision where you faced a bet is graded by your equity against
+the estimated ranges of the opponents in the pot (from their style, position and preflop actions)
+compared with the price. This is an estimate: it ignores later betting.
 """
 
 from __future__ import annotations
@@ -15,10 +15,12 @@ from typing import Any
 
 from holdem.core.cards import cards_str
 from holdem.core.equity import calculate_equity
-from holdem.engine.bots import STYLES, Bot, Style, estimated_range
-from holdem.engine.headsup import BIG_BLIND, Action, HeadsUpHand
+from holdem.engine.bots import STYLES, SeatBot, Style, seat_range
+from holdem.engine.headsup import BIG_BLIND, Action
+from holdem.engine.table import TableHand
 
-HERO, BOT = 0, 1
+HERO = 0
+SEATS = 6
 STACK = 200  # chips: 100bb
 BOARD_CARDS = {"preflop": 0, "flop": 3, "turn": 4, "river": 5}
 MISTAKE_BB = 1.0
@@ -39,7 +41,7 @@ class Decision:
     pot: int
     to_call: int
     equity: float
-    range_share: float  # share of all starting hands in the bot's estimated range
+    opponents: int  # how many ranges the equity is measured against
     need: float | None
     loss_bb: float  # estimated EV given up, in big blinds (0 when not graded)
     verdict: str  # good, leak, mistake, info
@@ -55,7 +57,7 @@ class Decision:
             "pot_bb": bb(self.pot),
             "to_call_bb": bb(self.to_call),
             "equity": round(self.equity, 4),
-            "range_share": round(self.range_share, 3),
+            "opponents": self.opponents,
             "need": None if self.need is None else round(self.need, 4),
             "loss_bb": self.loss_bb,
             "verdict": self.verdict,
@@ -63,26 +65,43 @@ class Decision:
         }
 
 
+def opponents_in_pot(hand: TableHand, log: list[Action], street: str) -> list[int]:
+    """The seats whose ranges you are up against at a point in the hand.
+
+    After the flop that is everyone who has not folded. Before it, players still to act mostly
+    fold, so only those who called or raised count (or the big blind when nobody has yet).
+    """
+    folded = {a.player for a in log if a.kind == "fold"}
+    live = [s for s in range(1, hand.seats) if s not in folded]
+    if street != "preflop":
+        return live
+    entered = {a.player for a in log if a.kind in ("call", "raise")}
+    return [s for s in live if s in entered] or [hand.positions.index("BB")]
+
+
 def equity_against(
-    style: Style, hand: HeadsUpHand, log: list[Action], street: str
-) -> tuple[float, float]:
-    """Hero's equity against the bot's estimated range at a point in the hand."""
+    styles: list[Style], hand: TableHand, log: list[Action], street: str
+) -> tuple[float, int]:
+    """Hero's equity against the estimated ranges of the opponents in the pot, and their number."""
     board = hand.board[: BOARD_CARDS[street]]
-    villain = estimated_range(style, log, BOT, hand.button)
-    combos = villain.combos([*hand.hole[HERO], *board])
+    seats = opponents_in_pot(hand, log, street)
+    ranges = [seat_range(styles[s - 1], log, s, hand.positions[s]) for s in seats]
     result = calculate_equity(
-        [hand.hole[HERO], combos], board, samples=1500, seed=len(log), exact_limit=300_000
+        [hand.hole[HERO], *ranges], board, samples=1500, seed=len(log), exact_limit=300_000
     )
-    return result[0].equity, villain.fraction()
+    return result[0].equity, len(seats)
 
 
-def review(style: Style, hand: HeadsUpHand) -> list[Decision]:
+def _against(opponents: int) -> str:
+    return "the bot's likely range" if opponents == 1 else f"{opponents} bots' likely ranges"
+
+
+def review(styles: list[Style], hand: TableHand) -> list[Decision]:
     decisions = []
     for index, action in enumerate(hand.log):
         if action.player != HERO or action.kind == "post":
             continue
-        prior = hand.log[:index]
-        equity, share = equity_against(style, hand, prior, action.street)
+        equity, opponents = equity_against(styles, hand, hand.log[:index], action.street)
         board = [cards_str([c]) for c in hand.board[: BOARD_CARDS[action.street]]]
         need = None
         loss = 0.0
@@ -99,14 +118,14 @@ def review(style: Style, hand: HeadsUpHand) -> list[Decision]:
                 verdict = "mistake" if loss >= MISTAKE_BB else "leak" if loss >= LEAK_BB else "good"
             note = (
                 f"Facing {bb(action.to_call):g}bb into {bb(action.pot):g}bb you needed {need:.0%}; "
-                f"against the bot's likely range (top {share:.0%}) you had about {equity:.0%}."
+                f"against {_against(opponents)} you had about {equity:.0%}."
             )
             if action.kind == "raise":
-                note += " Raises are not graded: they depend on how often the bot folds."
+                note += " Raises are not graded: they depend on how often the bots fold."
         else:
             note = (
-                f"You {action.kind} with about {equity:.0%} equity against the bot's likely range "
-                f"(top {share:.0%}). Checks and bets are not graded."
+                f"You {action.kind} with about {equity:.0%} equity against {_against(opponents)}. "
+                "Checks and bets are not graded."
             )
         decisions.append(
             Decision(
@@ -118,7 +137,7 @@ def review(style: Style, hand: HeadsUpHand) -> list[Decision]:
                 pot=action.pot,
                 to_call=action.to_call,
                 equity=equity,
-                range_share=share,
+                opponents=opponents,
                 need=need,
                 loss_bb=loss,
                 verdict=verdict,
@@ -130,61 +149,80 @@ def review(style: Style, hand: HeadsUpHand) -> list[Decision]:
 
 @dataclass
 class PlaySession:
-    style: Style
     seed: int
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     hands_played: int = 0
     net: int = 0  # chips across finished hands
-    hand: HeadsUpHand = field(init=False)
+    hand: TableHand = field(init=False)
     decisions: list[Decision] = field(init=False, default_factory=list)
+    styles: list[Style] = field(init=False)  # seats 1 to 5, clockwise from you
+    frames: list[dict[str, Any]] = field(init=False, default_factory=list)
     _rng: random.Random = field(init=False)
-    _bot: Bot = field(init=False)
+    _bots: list[SeatBot] = field(init=False)
 
     def __post_init__(self) -> None:
         self._rng = random.Random(self.seed)
-        self._bot = Bot(self.style, random.Random(self.seed + 1))
+        self.styles = list(STYLES.values())
+        self._rng.shuffle(self.styles)
+        self._bots = [
+            SeatBot(style, random.Random(self.seed + seat))
+            for seat, style in enumerate(self.styles, start=1)
+        ]
         self.new_hand()
 
     def new_hand(self) -> None:
-        button = self.hands_played % 2  # alternate the button
-        self.hand = HeadsUpHand([STACK, STACK], button, random.Random(self._rng.randrange(1 << 30)))
+        button = self.hands_played % SEATS  # the button moves one seat each hand
+        self.hand = TableHand([STACK] * SEATS, button, random.Random(self._rng.randrange(1 << 30)))
         self.decisions = []
+        self.frames = [self._frame()]
         self._bots_turn()
 
     def act(self, kind: str, to: int | None = None) -> None:
         if self.hand.finished or self.hand.current != HERO:
             raise ValueError("it is not your turn")
         self.hand.act(kind, to)
+        self.frames = [self._frame()]
         self._bots_turn()
 
+    def _frame(self) -> dict[str, Any]:
+        """The table after one action, for the browser to animate step by step."""
+        view = self.hand.public(viewer=HERO)
+        del view["log"]
+        return view
+
     def _bots_turn(self) -> None:
-        while not self.hand.finished and self.hand.current == BOT:
-            kind, to = self._bot.decide(self.hand)
+        while not self.hand.finished and self.hand.current != HERO:
+            kind, to = self._bots[self.hand.current - 1].decide(self.hand)
             self.hand.act(kind, to)
+            self.frames.append(self._frame())
         if self.hand.finished:
             self.hands_played += 1
             self.net += self.hand.net()[HERO]
-            self.decisions = review(self.style, self.hand)
+            self.decisions = review(self.styles, self.hand)
 
     def coach(self) -> dict[str, Any]:
         """Price and equity for the decision you face now."""
-        if self.hand.finished or self.hand.current != HERO:
+        if self.hand.finished:
             raise ValueError("there is no decision to coach")
-        legal = self.hand.legal()
-        pot = self.hand.total_pot
-        equity, share = equity_against(self.style, self.hand, self.hand.log, self.hand.street_name)
+        hand = self.hand
+        legal = hand.legal()
+        pot = hand.total_pot
+        equity, opponents = equity_against(self.styles, hand, hand.log, hand.street_name)
         need = legal.to_call / (pot + legal.to_call) if legal.to_call else None
         return {
             "to_call_bb": bb(legal.to_call),
             "pot_bb": bb(pot),
             "need": None if need is None else round(need, 4),
             "equity": round(equity, 4),
-            "range_share": round(share, 3),
+            "opponents": opponents,
         }
+
+    def seats(self) -> list[dict[str, str]]:
+        you = {"key": "hero", "name": "You", "character": "You", "blurb": ""}
+        return [you, *(style.public() for style in self.styles)]
 
     def state(self) -> dict[str, Any]:
         hand = self.hand
-        view = hand.public(viewer=HERO)
         legal = None
         if not hand.finished:
             options = hand.legal()
@@ -197,8 +235,9 @@ class PlaySession:
             }
         return {
             "id": self.id,
-            "style": self.style.public(),
-            "hand": view,
+            "seats": self.seats(),
+            "hand": hand.public(viewer=HERO),
+            "frames": self.frames,
             "legal": legal,
             "hands_played": self.hands_played,
             "net_bb": bb(self.net),
@@ -208,14 +247,13 @@ class PlaySession:
     def record(self) -> dict[str, Any]:
         """Everything needed to replay and review a finished hand."""
         return {
-            "style": self.style.key,
+            "style": "6-max",
+            "seats": self.seats(),
             "hand": self.hand.public(viewer=HERO, reveal=True),
             "net_bb": bb(self.hand.net()[HERO]),
             "decisions": [d.public() for d in self.decisions],
         }
 
 
-def new_session(style_key: str, seed: int | None = None) -> PlaySession:
-    if style_key not in STYLES:
-        raise KeyError(style_key)
-    return PlaySession(STYLES[style_key], random.randrange(1 << 30) if seed is None else seed)
+def new_session(seed: int | None = None) -> PlaySession:
+    return PlaySession(random.randrange(1 << 30) if seed is None else seed)

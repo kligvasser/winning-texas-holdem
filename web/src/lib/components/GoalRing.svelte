@@ -40,7 +40,7 @@
     stroke-width: 10;
   }
   .track {
-    stroke: var(--border);
+    stroke: color-mix(in srgb, var(--ink) 18%, var(--surface));
   }
   .fill {
     stroke: var(--accent);
@@ -48,7 +48,7 @@
     transition: stroke-dashoffset 0.8s ease;
   }
   .fill.done {
-    stroke: #f2b544;
+    stroke: var(--sun-deep);
   }
   figcaption {
     position: absolute;

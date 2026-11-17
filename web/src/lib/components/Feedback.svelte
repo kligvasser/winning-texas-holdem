@@ -2,6 +2,7 @@
   import type { GradeResult } from '../api'
   import { reviewMessage, signed } from '../format'
   import ActionLegend from './ActionLegend.svelte'
+  import Avatar from './Avatar.svelte'
   import CardRow from './CardRow.svelte'
   import ClosenessMeter from './ClosenessMeter.svelte'
   import RangeGrid from './RangeGrid.svelte'
@@ -31,7 +32,12 @@
 
 <section class="feedback" class:correct={result.correct} aria-live="polite">
   <div class="head">
-    <h3>{result.correct ? 'Correct' : 'Not quite'}</h3>
+    <span class="title">
+      <span class="face" aria-hidden="true">
+        <Avatar kind="hero" mood={result.correct ? 'happy' : 'idle'} label="" />
+      </span>
+      <h3>{result.correct ? 'Correct' : 'Not quite'}</h3>
+    </span>
     <button bind:this={button} type="button" class="next" onclick={onnext}
       >{result.follow_up ? 'Next street ⏎' : 'Next ⏎'}</button
     >
@@ -99,12 +105,13 @@
     animation: shake 0.38s ease;
     margin-top: 1rem;
     padding: 1rem 1.25rem;
-    border-radius: 0.75rem;
-    border-left: 5px solid var(--bad);
-    background: var(--surface);
+    border-radius: 1.2rem;
+    border: 3px solid var(--ink);
+    box-shadow: 0 5px 0 var(--ink);
+    background: color-mix(in srgb, var(--tomato) 16%, var(--surface));
   }
   .correct {
-    border-left-color: var(--good);
+    background: color-mix(in srgb, var(--mint) 20%, var(--surface));
     animation: pop-in 0.3s cubic-bezier(0.3, 1.5, 0.5, 1);
   }
   .head {
@@ -113,19 +120,35 @@
     align-items: center;
     gap: 1rem;
   }
+  .title {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+  }
+  .face {
+    width: 3rem;
+    height: 3rem;
+    flex: none;
+  }
   h3 {
     margin: 0;
-    color: var(--bad);
+    padding: 0.1rem 0.9rem;
+    border-radius: 999px;
+    border: var(--line);
+    box-shadow: var(--drop-sm);
+    background: var(--tomato);
+    color: var(--on-bright);
     font-size: 1.25rem;
+    font-weight: 900;
+    transform: rotate(-2deg);
   }
   .correct h3 {
-    color: var(--good);
+    background: var(--mint);
   }
   .next {
-    background: var(--accent);
-    color: var(--on-accent);
-    border-color: var(--accent);
-    font-weight: 600;
+    background: linear-gradient(#ffe94d, var(--sun-deep));
+    color: var(--on-bright);
+    font-weight: 900;
   }
   .error,
   .band,

@@ -1,38 +1,88 @@
 import { fireEvent, render, screen } from '@testing-library/svelte'
 import { describe, expect, it, vi } from 'vitest'
-import { decisions, handView, legal } from '../../test/fixtures'
+import { decisions, handView, legal, seats } from '../../test/fixtures'
 import ActionBar from './ActionBar.svelte'
+import ChipStack from './ChipStack.svelte'
 import DecisionList from './DecisionList.svelte'
 import PokerTable from './PokerTable.svelte'
 
-const names: [string, string] = ['You', 'Maniac']
-
 describe('PokerTable', () => {
-  it('shows seats, the board, bets and hides the bot cards', () => {
-    render(PokerTable, { hand: handView(), names })
-    expect(screen.getByText('Maniac')).toBeInTheDocument()
-    expect(screen.getAllByLabelText('Hidden card')).toHaveLength(2)
-    expect(screen.getByLabelText('Pot')).toHaveTextContent('Pot 12bb')
-    expect(screen.getByLabelText('Maniac bet')).toHaveTextContent('2bb')
+  it('seats six players with chips, the board and hidden cards', () => {
+    render(PokerTable, { hand: handView(), seats })
+    expect(screen.getByRole('group', { name: 'Rocky' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Finn (folded)' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'You' })).toHaveAttribute('aria-current', 'true')
+    expect(screen.getAllByLabelText('Hidden card')).toHaveLength(2) // only Rocky is still in
+    expect(screen.getByLabelText('Pot')).toHaveTextContent('Pot 8bb')
+    expect(screen.getByLabelText('Chips in the pot')).toBeInTheDocument()
+    expect(screen.getByLabelText('Rocky bet')).toHaveTextContent('2bb')
     expect(screen.queryByLabelText('You bet')).toBeNull()
-    expect(screen.getByTitle(/Dealer button/)).toBeInTheDocument()
+    expect(screen.getByTitle('Dealer button')).toBeInTheDocument()
+    expect(screen.getByText('Bet 2bb')).toHaveClass('k-bet')
+    expect(screen.getByText('One Pair')).toBeInTheDocument()
+    expect(screen.getByText('SB')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'King of hearts' })).toBeInTheDocument()
     expect(document.querySelectorAll('.slot')).toHaveLength(2)
+    expect(document.querySelectorAll('.fly')).toHaveLength(0)
+    for (const kind of ['hero', 'nit', 'tag', 'lag', 'station', 'maniac']) {
+      expect(document.querySelector(`[data-kind="${kind}"]`)).toBeInTheDocument()
+    }
   })
 
-  it('reveals cards and results at the end', () => {
+  it('reveals cards, winners and results at the end', () => {
     render(PokerTable, {
-      hand: handView({ hole: [['As', 'Kd'], ['Qs', 'Qd']], finished: true, net: [20, -20], current: null }),
-      names,
+      hand: handView({
+        hole: [['As', 'Kd'], ['Qs', 'Qd'], null, null, null, null],
+        made: ['One Pair', 'One Pair', null, null, null, null],
+        finished: true,
+        showdown: true,
+        net: [20, -18, -2, 0, 0, 0],
+        winners: [0],
+        current: null,
+        bets: [0, 0, 0, 0, 0, 0],
+      }),
+      seats,
     })
     expect(screen.getByText('+10bb')).toHaveClass('won')
-    expect(screen.getByText('-10bb')).toHaveClass('lost')
+    expect(screen.getByText('-9bb')).toHaveClass('lost')
     expect(screen.queryByLabelText('Hidden card')).toBeNull()
+    expect(screen.getByRole('group', { name: 'You' })).toHaveClass('winner')
+    expect(screen.getByRole('img', { name: 'You' })).toHaveClass('happy')
+    expect(screen.getByRole('img', { name: 'Nit' })).toHaveClass('idle')
+    expect(screen.getByRole('img', { name: 'TAG' })).toHaveClass('out')
+    expect(document.querySelectorAll('.fly.out')).toHaveLength(1)
+    expect(screen.queryByText(/^Bet/)).toBeNull() // nobody is talking once the hand is over
+    expect(screen.queryByLabelText('Chips in the pot')).toBeNull()
   })
 
-  it('shows an even result without colour', () => {
-    render(PokerTable, { hand: handView({ finished: true, net: [0, 0] }), names })
-    expect(screen.getAllByText('0bb')[0]).not.toHaveClass('won')
+  it('flashes an all-in and sweeps the bets into the pot', () => {
+    render(PokerTable, {
+      hand: handView({
+        behind: [195, 0, 198, 200, 200, 200],
+        bets: [0, 195, 0, 0, 0, 0],
+        hole: [['As', 'Kd'], null, ['Qs', 'Qd'], null, null, null],
+        folded: [true, false, true, true, true, true],
+        last: { street: 'flop', player: 1, kind: 'bet', amount: 195, to: 195, pot: 12, to_call: 0 },
+      }),
+      seats,
+      sweep: [5, 5, 0, 0, 0, 0],
+      tick: 3,
+    })
+    expect(screen.getByRole('status')).toHaveTextContent('ALL IN!')
+    expect(screen.getByText('All-in 97.5bb')).toHaveClass('allin')
+    expect(document.querySelectorAll('.fly.in')).toHaveLength(2)
+    // You folded: your own cards stay face up, a folded bot's would not.
+    expect(screen.getByRole('img', { name: 'Ace of spades' })).toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: 'Queen of spades' })).toBeNull()
+  })
+})
+
+describe('ChipStack', () => {
+  it('stacks chips in columns of five', () => {
+    render(ChipStack, { chips: 99, label: 'Bet' })
+    expect(screen.getByLabelText('Bet')).toHaveTextContent('49.5bb')
+    expect(document.querySelectorAll('.column')).toHaveLength(2)
+    expect(document.querySelectorAll('.chip')).toHaveLength(10)
   })
 })
 

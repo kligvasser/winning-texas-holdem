@@ -100,15 +100,19 @@
   .groups {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-    gap: 0.75rem;
+    gap: 1rem;
     margin: 1rem 0;
   }
   section {
     padding: 0.75rem 1rem;
-    border-radius: 0.75rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    border-radius: 1.1rem;
+    background: color-mix(in srgb, var(--tint) 26%, var(--surface));
+    border: var(--line);
+    box-shadow: var(--drop);
   }
+  section:nth-child(3n + 1) { --tint: var(--tomato); }
+  section:nth-child(3n + 2) { --tint: var(--mint); }
+  section:nth-child(3n) { --tint: var(--skyblue); }
   h2 {
     margin: 0 0 0.4rem;
     font-size: 0.95rem;
@@ -122,9 +126,11 @@
     gap: 0.5rem;
   }
   .start {
-    background: var(--accent);
-    color: var(--on-accent);
-    border-color: var(--accent);
-    font-weight: 600;
+    padding: 0.7rem 1.6rem;
+    border-width: 3px;
+    background: linear-gradient(#ffe94d, var(--sun-deep));
+    color: var(--on-bright);
+    font-size: 1.1rem;
+    font-weight: 900;
   }
 </style>

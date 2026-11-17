@@ -3,6 +3,7 @@
   import { api, type DrillMeta, type GradeResult, type Question } from '../api'
   import { loadBest, saveBest } from '../speed'
   import AnswerInput from './AnswerInput.svelte'
+  import Avatar from './Avatar.svelte'
   import Confetti from './Confetti.svelte'
   import QuestionView from './QuestionView.svelte'
 
@@ -120,6 +121,7 @@
 <section class="speed" aria-label="Speed round">
   {#if phase === 'ready'}
     <div class="intro">
+      <div class="face" aria-hidden="true"><Avatar kind="maniac" label="" /></div>
       <h2>⚡ {seconds}-second speed round</h2>
       <p>Answer as many as you can. Correct answers move on instantly; a miss shows the answer.</p>
       <p class="best">Personal best: <strong>{best}</strong></p>
@@ -168,15 +170,21 @@
   .intro {
     text-align: center;
     padding: 2rem 1rem;
-    border-radius: 1rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    border-radius: 1.4rem;
+    background: color-mix(in srgb, var(--sun) 22%, var(--surface));
+    border: 3px solid var(--ink);
+    box-shadow: 0 6px 0 var(--ink);
+  }
+  .face {
+    width: 5rem;
+    height: 5rem;
+    margin: 0 auto 0.5rem;
   }
   .go {
-    background: #f2b544;
-    color: #1d1505;
-    border-color: #f2b544;
-    font-weight: 700;
+    background: linear-gradient(#ffe94d, var(--sun-deep));
+    color: var(--on-bright);
+    border-width: 3px;
+    font-weight: 900;
     font-size: 1.1rem;
     padding: 0.7rem 1.6rem;
   }
@@ -200,16 +208,17 @@
     font-variant-numeric: tabular-nums;
   }
   .timebar {
-    height: 8px;
-    border-radius: 4px;
-    background: var(--border);
+    height: 14px;
+    border-radius: 999px;
+    border: 2px solid var(--ink);
+    background: var(--surface);
     margin: 0.5rem 0 1rem;
     overflow: hidden;
   }
   .timebar span {
     display: block;
     height: 100%;
-    background: linear-gradient(90deg, var(--bad), #f2b544, var(--good));
+    background: linear-gradient(90deg, var(--tomato), var(--sun), var(--mint));
     transition: width 0.1s linear;
   }
   .miss {

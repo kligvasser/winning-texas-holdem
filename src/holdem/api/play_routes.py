@@ -1,4 +1,4 @@
-"""Routes for playing heads-up against a bot and reviewing stored hands."""
+"""Routes for playing six-max against the bots and reviewing stored hands."""
 
 from __future__ import annotations
 
@@ -22,7 +22,6 @@ MAX_SESSIONS = 20
 
 
 class PlayRequest(BaseModel):
-    style: str
     seed: int | None = None
 
 
@@ -53,10 +52,7 @@ def register_play_routes(app: FastAPI, clock: Callable[[], datetime]) -> None:
 
     @app.post("/api/play")
     def start_play(body: PlayRequest, session: SessionDep) -> dict[str, Any]:
-        try:
-            play = new_session(body.style, body.seed)
-        except KeyError as exc:
-            raise HTTPException(404, f"unknown opponent {body.style!r}") from exc
+        play = new_session(body.seed)
         sessions[play.id] = play
         while len(sessions) > MAX_SESSIONS:
             sessions.pop(next(iter(sessions)))
