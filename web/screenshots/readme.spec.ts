@@ -120,6 +120,20 @@ test('readme screenshots', async ({ page }) => {
   await expect(result).toBeVisible()
   await page.screenshot({ animations: 'disabled', path: `${OUT}/play-review.png`, fullPage: true })
 
+  await page.goto('/#/review')
+  await page.getByRole('heading', { name: 'By position' }).waitFor()
+  await page.screenshot({ animations: 'disabled', path: `${OUT}/review.png`, fullPage: true })
+  await page.getByRole('link', { name: /6-max/ }).first().click()
+  await page.getByRole('button', { name: /Next/ }).click()
+  await page.getByRole('button', { name: /Next/ }).click()
+  await page.screenshot({ animations: 'disabled', path: `${OUT}/replay.png`, fullPage: true })
+
+  await page.goto('/#/toy')
+  await page.getByRole('button', { name: 'Play Moby' }).click()
+  await page.locator('[aria-label="Your action"] button').first().click()
+  await page.getByRole('region', { name: 'Hand result' }).waitFor()
+  await page.screenshot({ animations: 'disabled', path: `${OUT}/toy.png`, fullPage: true })
+
   await page.goto('/#/math-lab/hand-reading')
   await expect(page.getByRole('button', { name: 'Lock in' })).toBeEnabled()
   for (const name of ['72o', '82o', '92o', '32o', '42o', '52o', '62o', '73o', '83o', '93o', 'T2o']) {

@@ -266,6 +266,10 @@ def test_play_flow_and_hand_review(client):
 
     state = client.post(f"/api/play/{sid}/next").json()
     assert state["hands_played"] >= 1
+    assert not state["carry"]
+    assert detail["record"]["frames"][-1]["finished"]
+    assert "positions" in listing["stats"] and "leaks" in listing["stats"]
+    assert client.post("/api/play", json={"seed": 2, "carry": True}).json()["carry"]
 
 
 def test_play_sessions_are_capped(client):

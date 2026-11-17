@@ -7,6 +7,7 @@
   import PokerTable from '../components/PokerTable.svelte'
   import { describe, frameDelay, signedBb, toBb } from '../play'
   import { href } from '../router.svelte'
+  import { play as chime, setSound, soundFor, soundOn } from '../sound'
 
   /** Milliseconds per bot action; 0 shows the newest position at once. */
   let { pace = 700 }: { pace?: number } = $props()
@@ -23,6 +24,8 @@
   let tick = $state(0)
   let sweep = $state<number[] | null>(null)
   let timer: ReturnType<typeof setTimeout> | undefined
+  let carry = $state(false)
+  let sound = $state(soundOn())
 
   $effect(() => {
     api.styles().then(
@@ -48,6 +51,9 @@
     // Bets that left the seats since the last position are on their way to the pot.
     const cleared = index > 0 && now.bets.every((b) => b === 0) && before.bets.some((b) => b > 0)
     sweep = cleared ? before.bets : null
+    const last = index === frames.length - 1
+    if (last && now.finished) chime(now.net![0] > 0 ? 'win' : now.net![0] < 0 ? 'lose' : 'chip')
+    else chime(soundFor(now))
     if (index < frames.length - 1) {
       timer = setTimeout(() => show(index + 1), frameDelay(now, pace, now.folded[0]))
     }
@@ -79,6 +85,11 @@
   async function toggleCoach() {
     showCoach = !showCoach
     if (showCoach && game?.legal) coach = await api.coach(game.id).catch(() => null)
+  }
+
+  function toggleSound() {
+    sound = !sound
+    setSound(sound)
   }
 
   function leave() {
@@ -122,7 +133,11 @@
           </li>
         {/each}
       </ul>
-      <button type="button" class="big" disabled={busy} onclick={() => run(() => api.play())}>Deal me in!</button>
+      <label class="option">
+        <input type="checkbox" bind:checked={carry} /> Keep stacks between hands
+        <small>Win big or play short; anyone under 10bb is topped up.</small>
+      </label>
+      <button type="button" class="big" disabled={busy} onclick={() => run(() => api.play(carry))}>Deal me in!</button>
     {/if}
     <p><a href={href('review')}>Review your past hands →</a></p>
   </section>
@@ -131,6 +146,10 @@
     <span class="pill">Hand {game.hands_played + (game.hand.finished ? 0 : 1)}</span>
     <span class="pill" class:won={game.net_bb > 0} class:lost={game.net_bb < 0} aria-label="Session result"
       >{game.net_bb > 0 ? '+' : ''}{game.net_bb}bb</span
+    >
+    {#if game.carry}<span class="pill">Stacks carry over</span>{/if}
+    <button type="button" class="mute" aria-pressed={sound} aria-label="Sound" onclick={toggleSound}
+      >{sound ? '🔊' : '🔇'}</button
     >
     <button type="button" class="link" onclick={leave}>Leave table</button>
   </header>
@@ -184,8 +203,8 @@
       <h3>Your decisions</h3>
       <DecisionList decisions={game.decisions} />
       <p class="note">
-        Graded against the likely ranges of the bots in the pot, from their style, position and
-        preflop actions. Later betting is ignored, so treat the numbers as estimates.
+        Graded against the bots' likely hands, narrowed by every action they took. Bets and raises
+        assume no more betting after a call, so treat the numbers as estimates.
       </p>
     </section>
   {/if}
@@ -308,8 +327,24 @@
     background: #ffb3ad;
     color: #2a1a3a;
   }
-  .link {
+  .option {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2rem 0.5rem;
+    margin-bottom: 1rem;
+    font-weight: 800;
+  }
+  .option small {
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .mute {
     margin-left: auto;
+    padding: 0.1rem 0.6rem;
+    border-radius: 999px;
+  }
+  .link {
     border: none;
     box-shadow: none;
     background: none;
@@ -323,7 +358,7 @@
   .banner {
     position: absolute;
     left: 50%;
-    top: 66%;
+    top: 61%;
     z-index: 7;
     transform: translate(-50%, -50%) rotate(-3deg);
     padding: 0.5rem 1.6rem;

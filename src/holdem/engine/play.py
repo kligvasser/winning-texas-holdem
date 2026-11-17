@@ -1,9 +1,9 @@
 """A six-max session against five bots, one of each style, and a review of your decisions.
 
-Stacks reset to 100bb each hand (a cash game with automatic top-ups) and the button moves one seat
-per hand. After each hand, every decision where you faced a bet is graded by your equity against
-the estimated ranges of the opponents in the pot (from their style, position and preflop actions)
-compared with the price. This is an estimate: it ignores later betting.
+Stacks reset to 100bb each hand unless the session carries them over, in which case anyone under
+10bb is topped back up. The button moves one seat per hand. After each hand your decisions are
+graded against the opponents' likely hands (see ``reads``): calls and folds by equity against the
+price, bets and raises after the flop by how often the bots fold and what you have when called.
 """
 
 from __future__ import annotations
@@ -14,15 +14,14 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from holdem.core.cards import cards_str
-from holdem.core.equity import calculate_equity
-from holdem.engine.bots import STYLES, SeatBot, Style, seat_range
-from holdem.engine.headsup import BIG_BLIND, Action
+from holdem.engine.bots import STYLES, SeatBot, Style
+from holdem.engine.headsup import BIG_BLIND
+from holdem.engine.reads import BOARD_CARDS, HERO, equity_against, push_value
 from holdem.engine.table import TableHand
 
-HERO = 0
 SEATS = 6
 STACK = 200  # chips: 100bb
-BOARD_CARDS = {"preflop": 0, "flop": 3, "turn": 4, "river": 5}
+REBUY_BELOW = 20  # with carried stacks, anyone under 10bb is topped up to 100bb
 MISTAKE_BB = 1.0
 LEAK_BB = 0.25
 
@@ -65,35 +64,12 @@ class Decision:
         }
 
 
-def opponents_in_pot(hand: TableHand, log: list[Action], street: str) -> list[int]:
-    """The seats whose ranges you are up against at a point in the hand.
-
-    After the flop that is everyone who has not folded. Before it, players still to act mostly
-    fold, so only those who called or raised count (or the big blind when nobody has yet).
-    """
-    folded = {a.player for a in log if a.kind == "fold"}
-    live = [s for s in range(1, hand.seats) if s not in folded]
-    if street != "preflop":
-        return live
-    entered = {a.player for a in log if a.kind in ("call", "raise")}
-    return [s for s in live if s in entered] or [hand.positions.index("BB")]
-
-
-def equity_against(
-    styles: list[Style], hand: TableHand, log: list[Action], street: str
-) -> tuple[float, int]:
-    """Hero's equity against the estimated ranges of the opponents in the pot, and their number."""
-    board = hand.board[: BOARD_CARDS[street]]
-    seats = opponents_in_pot(hand, log, street)
-    ranges = [seat_range(styles[s - 1], log, s, hand.positions[s]) for s in seats]
-    result = calculate_equity(
-        [hand.hole[HERO], *ranges], board, samples=1500, seed=len(log), exact_limit=300_000
-    )
-    return result[0].equity, len(seats)
-
-
 def _against(opponents: int) -> str:
     return "the bot's likely range" if opponents == 1 else f"{opponents} bots' likely ranges"
+
+
+def _verdict(loss: float) -> str:
+    return "mistake" if loss >= MISTAKE_BB else "leak" if loss >= LEAK_BB else "good"
 
 
 def review(styles: list[Style], hand: TableHand) -> list[Decision]:
@@ -101,32 +77,46 @@ def review(styles: list[Style], hand: TableHand) -> list[Decision]:
     for index, action in enumerate(hand.log):
         if action.player != HERO or action.kind == "post":
             continue
-        equity, opponents = equity_against(styles, hand, hand.log[:index], action.street)
+        equity, opponents = equity_against(styles, hand, index, action.street)
         board = [cards_str([c]) for c in hand.board[: BOARD_CARDS[action.street]]]
         need = None
         loss = 0.0
         verdict = "info"
+        pushing = action.kind in ("bet", "raise")
+        push = push_value(styles, hand, index) if pushing and action.street != "preflop" else None
         if action.to_call:
             need = action.to_call / (action.pot + action.to_call)
+        if push:
+            loss = bb(max(0.0, push.passive - push.aggressive))
+            verdict = _verdict(loss)
+            verb = "Betting" if action.kind == "bet" else "Raising"
+            note = (
+                f"{verb} {bb(action.amount):g}bb into {bb(action.pot):g}bb: everyone folds about "
+                f"{push.fold_all:.0%} of the time, and when called you have about "
+                f"{push.called_equity:.0%}. That is worth about "
+                f"{bb(push.aggressive - push.passive):+.1f}bb compared with {push.alternative}."
+            )
+        elif action.to_call:
+            assert need is not None
             call_ev = equity * (action.pot + action.to_call) - action.to_call
             if action.kind == "fold":
                 loss = max(0.0, call_ev)
             elif action.kind == "call":
                 loss = max(0.0, -call_ev)
             loss = bb(loss)
-            if action.kind in ("fold", "call"):
-                verdict = "mistake" if loss >= MISTAKE_BB else "leak" if loss >= LEAK_BB else "good"
+            if not pushing:
+                verdict = _verdict(loss)
             note = (
                 f"Facing {bb(action.to_call):g}bb into {bb(action.pot):g}bb you needed {need:.0%}; "
                 f"against {_against(opponents)} you had about {equity:.0%}."
             )
-            if action.kind == "raise":
-                note += " Raises are not graded: they depend on how often the bots fold."
+            if pushing:
+                note += " This raise is not graded."
         else:
             note = (
-                f"You {action.kind} with about {equity:.0%} equity against {_against(opponents)}. "
-                "Checks and bets are not graded."
+                f"You {action.kind} with about {equity:.0%} equity against {_against(opponents)}."
             )
+            note += " This raise is not graded." if pushing else " Checks are not graded."
         decisions.append(
             Decision(
                 index=index,
@@ -150,13 +140,16 @@ def review(styles: list[Style], hand: TableHand) -> list[Decision]:
 @dataclass
 class PlaySession:
     seed: int
+    carry: bool = False  # keep stacks between hands instead of resetting to 100bb
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     hands_played: int = 0
     net: int = 0  # chips across finished hands
     hand: TableHand = field(init=False)
     decisions: list[Decision] = field(init=False, default_factory=list)
     styles: list[Style] = field(init=False)  # seats 1 to 5, clockwise from you
-    frames: list[dict[str, Any]] = field(init=False, default_factory=list)
+    frames: list[dict[str, Any]] = field(init=False, default_factory=list)  # since your last move
+    history: list[dict[str, Any]] = field(init=False, default_factory=list)  # the whole hand
+    stacks: list[int] = field(init=False, default_factory=lambda: [STACK] * SEATS)
     _rng: random.Random = field(init=False)
     _bots: list[SeatBot] = field(init=False)
 
@@ -172,32 +165,42 @@ class PlaySession:
 
     def new_hand(self) -> None:
         button = self.hands_played % SEATS  # the button moves one seat each hand
-        self.hand = TableHand([STACK] * SEATS, button, random.Random(self._rng.randrange(1 << 30)))
+        if self.carry:
+            self.stacks = [s if s >= REBUY_BELOW else STACK for s in self.stacks]
+        else:
+            self.stacks = [STACK] * SEATS
+        self.hand = TableHand(self.stacks, button, random.Random(self._rng.randrange(1 << 30)))
         self.decisions = []
-        self.frames = [self._frame()]
+        self.frames = []
+        self.history = []
+        self._snap()
         self._bots_turn()
 
     def act(self, kind: str, to: int | None = None) -> None:
         if self.hand.finished or self.hand.current != HERO:
             raise ValueError("it is not your turn")
         self.hand.act(kind, to)
-        self.frames = [self._frame()]
+        self.frames = []
+        self._snap()
         self._bots_turn()
 
-    def _frame(self) -> dict[str, Any]:
-        """The table after one action, for the browser to animate step by step."""
+    def _snap(self) -> None:
+        """Keep the table after one action, for the browser to animate step by step."""
         view = self.hand.public(viewer=HERO)
         del view["log"]
-        return view
+        self.frames.append(view)
+        self.history.append(view)
 
     def _bots_turn(self) -> None:
         while not self.hand.finished and self.hand.current != HERO:
             kind, to = self._bots[self.hand.current - 1].decide(self.hand)
             self.hand.act(kind, to)
-            self.frames.append(self._frame())
+            self._snap()
         if self.hand.finished:
             self.hands_played += 1
-            self.net += self.hand.net()[HERO]
+            net = self.hand.net()
+            self.net += net[HERO]
+            self.stacks = [stack + won for stack, won in zip(self.hand.stacks, net, strict=True)]
             self.decisions = review(self.styles, self.hand)
 
     def coach(self) -> dict[str, Any]:
@@ -207,7 +210,7 @@ class PlaySession:
         hand = self.hand
         legal = hand.legal()
         pot = hand.total_pot
-        equity, opponents = equity_against(self.styles, hand, hand.log, hand.street_name)
+        equity, opponents = equity_against(self.styles, hand, len(hand.log), hand.street_name)
         need = legal.to_call / (pot + legal.to_call) if legal.to_call else None
         return {
             "to_call_bb": bb(legal.to_call),
@@ -235,6 +238,7 @@ class PlaySession:
             }
         return {
             "id": self.id,
+            "carry": self.carry,
             "seats": self.seats(),
             "hand": hand.public(viewer=HERO),
             "frames": self.frames,
@@ -250,10 +254,11 @@ class PlaySession:
             "style": "6-max",
             "seats": self.seats(),
             "hand": self.hand.public(viewer=HERO, reveal=True),
+            "frames": self.history,
             "net_bb": bb(self.hand.net()[HERO]),
             "decisions": [d.public() for d in self.decisions],
         }
 
 
-def new_session(seed: int | None = None) -> PlaySession:
-    return PlaySession(random.randrange(1 << 30) if seed is None else seed)
+def new_session(seed: int | None = None, carry: bool = False) -> PlaySession:
+    return PlaySession(random.randrange(1 << 30) if seed is None else seed, carry)

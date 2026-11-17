@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../api'
-import { decisions, frame, handView, playState, seats } from '../../test/fixtures'
+import { decisions, frame, handView, playState, playStats, seats } from '../../test/fixtures'
 import Play from './Play.svelte'
 import Review from './Review.svelte'
 
@@ -41,6 +41,21 @@ beforeEach(() => {
 const sit = async () => fireEvent.click(await screen.findByRole('button', { name: 'Deal me in!' }))
 
 describe('Play', () => {
+  it('keeps stacks between hands when asked, and can be muted', async () => {
+    mocked.play.mockResolvedValue(playState({ carry: true }))
+    render(Play, { pace: 0 })
+    await fireEvent.click(await screen.findByLabelText(/Keep stacks between hands/))
+    await sit()
+    expect(mocked.play).toHaveBeenCalledWith(true)
+    expect(await screen.findByText('Stacks carry over')).toBeInTheDocument()
+    const mute = screen.getByRole('button', { name: 'Sound' })
+    expect(mute).toHaveAttribute('aria-pressed', 'true')
+    await fireEvent.click(mute)
+    expect(mute).toHaveAttribute('aria-pressed', 'false')
+    expect(localStorage.getItem('holdem.sound')).toBe('off')
+    localStorage.clear()
+  })
+
   it('introduces the table, then plays a hand to its review', async () => {
     render(Play, { pace: 0 })
     expect(screen.getByText('Loading…')).toBeInTheDocument()
@@ -226,7 +241,7 @@ describe('Review', () => {
   it('lists hands worst first with stats and filters to mistakes', async () => {
     mocked.hands.mockResolvedValue({
       hands: [summary(1), summary(2, { net_bb: -8, worst_loss_bb: 4, mistakes: 2, board: [] })],
-      stats: { hands: 2, net_bb: -3, bb_per_100: -150, vpip: 0.5, pfr: 0.5 },
+      stats: playStats(),
     })
     render(Review)
     expect(screen.getByText('Loading…')).toBeInTheDocument()
@@ -236,6 +251,8 @@ describe('Review', () => {
     expect(screen.getByText('no flop')).toBeInTheDocument()
     expect(screen.getByText('-3bb')).toHaveClass('lost')
     expect(screen.getByText('-150bb per 100 hands')).toBeInTheDocument()
+    expect(screen.getByText(/Small sample/)).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'What to work on' })).toBeNull()
     await fireEvent.click(screen.getByLabelText('Only hands with mistakes'))
     expect(screen.getAllByRole('link', { name: /6-max/ })).toHaveLength(1)
   })
@@ -243,7 +260,7 @@ describe('Review', () => {
   it('handles winning stats, a single mistake, and an empty filter', async () => {
     mocked.hands.mockResolvedValue({
       hands: [summary(1, { mistakes: 1, worst_loss_bb: 1.2 })],
-      stats: { hands: 1, net_bb: 5, bb_per_100: 500, vpip: null, pfr: null },
+      stats: playStats({ hands: 1, net_bb: 5, bb_per_100: 500, vpip: null, pfr: null }),
     })
     const { unmount } = render(Review)
     expect(await screen.findByText('1 mistake · −1.2bb')).toBeInTheDocument()
@@ -251,7 +268,7 @@ describe('Review', () => {
     unmount()
     mocked.hands.mockResolvedValue({
       hands: [summary(1)],
-      stats: { hands: 1, net_bb: 0, bb_per_100: 0, vpip: 1, pfr: 0 },
+      stats: playStats({ hands: 1, net_bb: 0, bb_per_100: 0, vpip: 1, pfr: 0 }),
     })
     render(Review)
     await screen.findAllByRole('link', { name: /6-max/ })
@@ -260,7 +277,7 @@ describe('Review', () => {
   })
 
   it('invites you to play when there are no hands', async () => {
-    mocked.hands.mockResolvedValue({ hands: [], stats: { hands: 0, net_bb: 0, bb_per_100: null, vpip: null, pfr: null } })
+    mocked.hands.mockResolvedValue({ hands: [], stats: playStats({ hands: 0, net_bb: 0, bb_per_100: null }) })
     render(Review)
     expect(await screen.findByRole('link', { name: 'Play a few hands' })).toHaveAttribute('href', '#/play')
   })
@@ -277,6 +294,77 @@ describe('Review', () => {
     expect(screen.getByText('Mistake')).toBeInTheDocument()
     expect(screen.getByText('preflop: You raise to 2.5bb')).toBeInTheDocument()
     expect(mocked.hand).toHaveBeenCalledWith(7)
+    // A hand stored without frames has nothing to step through.
+    expect(screen.queryByRole('group', { name: 'Replay' })).toBeNull()
+    await fireEvent.keyDown(window, { key: 'ArrowRight' })
+    expect(screen.getByRole('heading', { name: 'Your decisions' })).toBeInTheDocument()
+  })
+
+  it('replays a hand step by step and hides the result until the end', async () => {
+    mocked.hand.mockResolvedValue({
+      ...summary(7),
+      record: {
+        style: '6-max',
+        seats,
+        hand: finished.hand,
+        frames: [frame(), frame(), frame({ finished: true, current: null })],
+        net_bb: 10,
+        decisions,
+      },
+    })
+    render(Review, { selected: '7' })
+    const replay = await screen.findByRole('group', { name: 'Replay' })
+    expect(replay).toHaveTextContent('Step 1 of 3')
+    expect(screen.getByRole('button', { name: /Back/ })).toBeDisabled()
+    expect(screen.queryByRole('heading', { name: 'Your decisions' })).toBeNull()
+    expect(screen.getByText(/The result stays hidden/)).toBeInTheDocument()
+    expect(screen.queryByText('Mistake')).toBeNull()
+
+    await fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+    expect(replay).toHaveTextContent('Step 2 of 3')
+    expect(screen.getByRole('heading', { name: 'Your decision here' })).toBeInTheDocument()
+    expect(screen.getByText('Not graded')).toBeInTheDocument()
+
+    await fireEvent.keyDown(window, { key: 'ArrowRight' })
+    expect(screen.getByRole('heading', { name: 'Your decisions' })).toBeInTheDocument()
+    expect(screen.getByText('Mistake')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Next/ })).toBeDisabled()
+    await fireEvent.keyDown(window, { key: 'ArrowRight' }) // already at the end
+    expect(replay).toHaveTextContent('Step 3 of 3')
+
+    await fireEvent.keyDown(window, { key: 'ArrowLeft' })
+    await fireEvent.keyDown(window, { key: 'x' })
+    expect(replay).toHaveTextContent('Step 2 of 3')
+    await fireEvent.click(screen.getByRole('button', { name: /Back/ }))
+    await fireEvent.click(screen.getByRole('button', { name: /Show result/ }))
+    expect(replay).toHaveTextContent('Step 3 of 3')
+    await fireEvent.click(screen.getByRole('button', { name: /Start/ }))
+    expect(replay).toHaveTextContent('Step 1 of 3')
+  })
+
+  it('shows leaks with a practise link and results by position', async () => {
+    mocked.hands.mockResolvedValue({
+      hands: [summary(1)],
+      stats: playStats({
+        hands: 40,
+        net_bb: 0,
+        leaks: [
+          { key: 'loose', title: 'You play 45% of hands', detail: 'Tighten up.', page: 'math-lab', arg: 'preflop-open', label: 'Drill opening ranges' },
+        ],
+        positions: [
+          { position: 'BTN', hands: 3, net_bb: 4, vpip: 1, pfr: null, loss_bb: 2.5, mistakes: 1 },
+          { position: 'BB', hands: 1, net_bb: -2, vpip: 0, pfr: 0, loss_bb: 0, mistakes: 0 },
+        ],
+      }),
+    })
+    render(Review)
+    expect(await screen.findByText('You play 45% of hands')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Drill opening ranges →' })).toHaveAttribute('href', '#/math-lab/preflop-open')
+    expect(screen.getByRole('rowheader', { name: 'BTN' })).toBeInTheDocument()
+    expect(screen.getByText('+4bb')).toHaveClass('won')
+    expect(screen.getByText('−2.5bb')).toHaveClass('lost')
+    expect(screen.getByText('3-bet · chances: 0')).toBeInTheDocument()
+    expect(screen.queryByText(/Small sample/)).toBeNull()
   })
 
   it('reports load failures', async () => {

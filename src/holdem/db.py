@@ -13,6 +13,8 @@ from typing import Any
 from sqlalchemy import Engine, String, create_engine, event, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
+from holdem.table_stats import table_report
+
 DEFAULT_DATA_DIR = Path("data")
 
 
@@ -194,20 +196,13 @@ def hand_summary(row: PlayedHand) -> dict[str, Any]:
 
 
 def play_stats(session: Session) -> dict[str, Any]:
-    """Your numbers across stored hands: results, VPIP and PFR."""
+    """Your numbers across stored hands: results, frequencies by position and leaks."""
     rows = session.scalars(select(PlayedHand)).all()
-    vpip = pfr = 0
-    for row in rows:
-        log = json.loads(row.record)["hand"]["log"]
-        mine = [a["kind"] for a in log if a["street"] == "preflop" and a["player"] == 0]
-        vpip += any(k in ("call", "raise") for k in mine)
-        pfr += "raise" in mine
     n = len(rows)
     net = round(sum(r.net_bb for r in rows), 2)
     return {
         "hands": n,
         "net_bb": net,
         "bb_per_100": round(net / n * 100, 1) if n else None,
-        "vpip": round(vpip / n, 3) if n else None,
-        "pfr": round(pfr / n, 3) if n else None,
+        **table_report([json.loads(r.record) for r in rows]),
     }

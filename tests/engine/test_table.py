@@ -168,3 +168,39 @@ def test_chips_are_conserved_under_random_play(seats):
         assert sum(hand.net()) == 0
         assert sum(hand.winnings) == hand.pot
         assert all(b >= 0 for b in hand.behind)
+
+
+def test_a_short_all_in_does_not_reopen_the_betting():
+    hand = table([200, 200, 21])
+    hand.act("raise", 6)
+    hand.act("call")
+    hand.act("call")
+    hand.act("bet", 10)  # seat 1
+    assert hand.legal().min_raise_to == 15  # seat 2 has only 15 left
+    hand.act("raise", 15)  # all in for 5 more: less than a full raise
+    legal = hand.legal()  # seat 0 has not acted on this street, so it may still raise
+    assert legal.can_raise
+    assert legal.min_raise_to == 25
+    hand.act("call")
+    legal = hand.legal()  # seat 1 already bet: it may only call or fold
+    assert hand.current == 1
+    assert not legal.can_raise
+    assert legal.to_call == 5
+    with pytest.raises(IllegalActionError):
+        hand.act("raise", 40)
+    hand.act("call")
+    assert hand.street_name == "turn"
+    assert len(hand.raisable) == len(hand.log)
+    assert hand.raisable[:2] == [False, False]  # the blinds
+
+
+def test_a_full_raise_over_a_short_all_in_reopens_the_betting():
+    hand = table([200, 200, 21])
+    hand.act("raise", 6)
+    hand.act("call")
+    hand.act("call")
+    hand.act("bet", 10)
+    hand.act("raise", 15)
+    hand.act("raise", 40)  # seat 0 makes a full raise
+    assert hand.current == 1
+    assert hand.legal().can_raise

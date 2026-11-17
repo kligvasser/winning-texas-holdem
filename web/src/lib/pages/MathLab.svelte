@@ -39,6 +39,7 @@
   <div class="starts">
     <a class="mixed" href={href('math-lab', 'mixed')}>Start a mixed session</a>
     <a class="mixed speed" href={href('speed', 'mixed')}>⚡ 60-second speed round</a>
+    <a class="mixed toy" href={href('toy')}>🎲 Toy games</a>
   </div>
   {#each groupByTier(drills) as [tier, tierDrills] (tier)}
     <h2>Tier {tier} · {TIER_NAMES[tier]}</h2>
@@ -65,6 +66,9 @@
   }
   .mixed.speed {
     background: linear-gradient(#ffe94d, var(--sun-deep));
+  }
+  .mixed.toy {
+    background: var(--grape);
   }
   .mixed:active {
     transform: translateY(3px);

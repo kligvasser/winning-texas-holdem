@@ -21,15 +21,8 @@ from holdem.engine.bots import (
     top_share_range,
 )
 from holdem.engine.headsup import Action, HeadsUpHand
-from holdem.engine.play import (
-    HERO,
-    PlaySession,
-    bb,
-    equity_against,
-    new_session,
-    opponents_in_pot,
-    review,
-)
+from holdem.engine.play import HERO, STACK, PlaySession, bb, new_session, review
+from holdem.engine.reads import Push, equity_against, opponents_in_pot
 from holdem.engine.table import TableHand
 
 
@@ -199,12 +192,33 @@ def test_session_plays_reviews_and_moves_the_button():
         assert state["frames"]
         record = play.record()
         assert record["style"] == "6-max"
+        assert record["frames"][-1]["finished"] and "log" not in record["frames"][0]
+        assert len(record["frames"]) >= len(state["frames"])
+        assert play.stacks != [STACK] * 6 or state["hand"]["net"] == [0] * 6
+        assert not state["carry"]
         assert all(cards is not None for cards in record["hand"]["hole"])
         assert len(record["seats"]) == 6
         for d in state["decisions"]:
             assert d["verdict"] in ("good", "leak", "mistake", "info")
         play.new_hand()
+        assert play.hand.stacks == [STACK] * 6
     assert play.hands_played >= 7
+
+
+def test_carried_stacks_persist_and_short_stacks_rebuy():
+    play = new_session(seed=3, carry=True)
+    assert play.state()["carry"]
+    rng = random.Random(1)
+    for _ in range(4):
+        play_hand(play, rng)
+        after = list(play.stacks)
+        assert sum(after) == sum(play.hand.stacks)
+        play.new_hand()
+        assert play.hand.stacks == [s if s >= 20 else STACK for s in after]
+    play_hand(play, rng)
+    play.stacks = [19, 400, 200, 200, 200, 181]
+    play.new_hand()
+    assert play.hand.stacks == [STACK, 400, 200, 200, 200, 181]
 
 
 def test_not_your_turn_and_coach():
@@ -248,7 +262,7 @@ def test_review_grades_calls_and_folds(monkeypatch):
     assert review(styles, hand)[1].verdict == "good"
 
 
-def test_raises_and_checks_are_shown_but_not_graded(monkeypatch):
+def test_preflop_raises_and_checks_are_shown_but_not_graded(monkeypatch):
     hand = TableHand([200] * 3, 2, random.Random(4))  # hero is the small blind
     hand.act("raise", 6)
     hand.act("raise", 20)  # hero re-raises
@@ -258,10 +272,50 @@ def test_raises_and_checks_are_shown_but_not_graded(monkeypatch):
     monkeypatch.setattr("holdem.engine.play.equity_against", lambda *a: (0.5, 1))
     raised, checked = review(list(STYLES.values()), hand)
     assert raised.verdict == "info"
-    assert "not graded" in raised.note
+    assert "This raise is not graded" in raised.note
     assert raised.public()["need"] is not None
     assert checked.verdict == "info"
+    assert "Checks are not graded" in checked.note
     assert checked.public()["need"] is None
+
+    option = TableHand([200] * 3, 1, random.Random(4))  # hero is the big blind
+    option.act("call")
+    option.act("call")
+    option.act("raise", 10)  # hero raises the limpers with nothing to call
+    (raised,) = review(list(STYLES.values()), option)
+    assert raised.verdict == "info"
+    assert raised.note.startswith("You raise") and "not graded" in raised.note
+
+
+def test_review_grades_bets_and_raises_after_the_flop(monkeypatch):
+    styles = list(STYLES.values())
+    hand = TableHand([200] * 3, 0, random.Random(4))
+    hand.act("raise", 6)  # hero opens the button
+    hand.act("call")
+    hand.act("call")
+    hand.act("check")
+    hand.act("bet", 10)
+    hand.act("raise", 30)  # hero raises the flop bet
+    hand.act("fold")
+    hand.act("call")
+    hand.act("check")
+    hand.act("bet", 40)  # hero bets the turn
+    monkeypatch.setattr("holdem.engine.play.equity_against", lambda *a: (0.5, 2))
+    values = iter([Push(-20.0, 4.0, "calling", 0.2, 0.3), Push(30.0, 22.0, "checking", 0.4, 0.7)])
+    monkeypatch.setattr("holdem.engine.play.push_value", lambda *a: next(values))
+    opened, raised, bet = review(styles, hand)
+    assert opened.verdict == "info"
+    assert raised.verdict == "mistake"
+    assert raised.loss_bb == 12
+    assert "Raising 30bb" not in raised.note and "Raising 15bb into" in raised.note
+    assert "everyone folds about 20%" in raised.note
+    assert "-12.0bb compared with calling" in raised.note
+    assert bet.verdict == "good"
+    assert bet.loss_bb == 0
+    assert "Betting 20bb" in bet.note and "+4.0bb compared with checking" in bet.note
+    # Without an estimate the raise is described but not graded.
+    monkeypatch.setattr("holdem.engine.play.push_value", lambda *a: None)
+    assert review(styles, hand)[1].verdict == "info"
 
 
 def test_equity_is_measured_against_the_players_in_the_pot():
@@ -272,7 +326,7 @@ def test_equity_is_measured_against_the_players_in_the_pot():
     hand.act("fold")
     hand.act("call")  # seat 5
     assert opponents_in_pot(hand, hand.log, "preflop") == [3, 5]
-    equity, opponents = equity_against(styles, hand, hand.log, "preflop")
+    equity, opponents = equity_against(styles, hand, len(hand.log), "preflop")
     assert 0 < equity < 1
     assert opponents == 2
     hand.act("call")  # hero
@@ -303,6 +357,8 @@ def test_storage_summary_and_stats(engine):
     assert 0 < stats["vpip"] <= 1
     assert 0 < stats["pfr"] <= 1
     assert stats["bb_per_100"] == pytest.approx(stats["net_bb"] / 3 * 100, abs=0.1)
+    assert sum(p["hands"] for p in stats["positions"]) == 3
+    assert isinstance(stats["leaks"], list)
 
 
 def test_bb_helper_and_constants():

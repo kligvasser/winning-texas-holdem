@@ -86,6 +86,10 @@
     <strong>🤖 Play</strong>
     <span>A six-seat table against five bots with their own styles; every decision reviewed.</span>
   </a>
+  <a class="tile" href={href('toy')}>
+    <strong>🎲 Toy games</strong>
+    <span>One card, one bet: how often to bluff and to call, against four opponents.</span>
+  </a>
   <a class="tile" href={href('stats')}>
     <strong>📈 Progress</strong>
     <span>Activity, accuracy, speed and estimation bias for each drill.</span>

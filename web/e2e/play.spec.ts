@@ -30,8 +30,18 @@ test('play six-max hands against the bots and review them', async ({ page }) => 
   }
   await page.goto('/#/review')
   await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'By position' })).toBeVisible()
+  await expect(page.getByText(/3-bet · chances: \d+/)).toBeVisible()
   await page.getByRole('link', { name: /6-max/ }).first().click()
   await expect(page.getByRole('heading', { name: /Hand #\d+/ })).toBeVisible()
   await expect(page.getByRole('group', { name: /^You/ })).toBeVisible()
+  // The replay starts at the deal and keeps the result hidden until the last step.
+  const replay = page.getByRole('group', { name: 'Replay' })
+  await expect(replay).toContainText('Step 1 of')
+  await expect(page.getByRole('heading', { name: 'Your decisions' })).toBeHidden()
+  await page.keyboard.press('ArrowRight')
+  await expect(replay).toContainText('Step 2 of')
+  await page.getByRole('button', { name: /Show result/ }).click()
   await expect(page.getByRole('heading', { name: 'Your decisions' })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })

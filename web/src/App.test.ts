@@ -24,6 +24,7 @@ vi.mock('./lib/api', () => ({
     curriculum: vi.fn(() => Promise.resolve({ concepts: [], cards: {}, materials: [] })),
     spots: vi.fn(() => Promise.resolve([])),
     styles: vi.fn(() => Promise.resolve([])),
+    toyMenu: vi.fn(() => Promise.resolve({ games: [], opponents: [] })),
     hands: vi.fn(() =>
       Promise.resolve({ hands: [], stats: { hands: 0, net_bb: 0, bb_per_100: null, vpip: null, pfr: null } }),
     ),
@@ -72,6 +73,9 @@ describe('App', () => {
 
     await visit('play')
     expect(await screen.findByRole('heading', { name: 'Play' })).toBeInTheDocument()
+
+    await visit('toy')
+    expect(await screen.findByRole('heading', { name: 'Toy games' })).toBeInTheDocument()
 
     await visit('review')
     expect(await screen.findByRole('heading', { name: 'Review' })).toBeInTheDocument()

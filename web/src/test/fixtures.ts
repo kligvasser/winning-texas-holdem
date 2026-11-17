@@ -1,4 +1,4 @@
-import type { Activity, Concept, Curriculum, HandView, Legal, LoggedAction, PlayState, PlayStyle, TableView, ReviewedDecision, DailyPlan, DrillMeta, DrillStats, GradeResult, Question, Spot, SpotLeak } from '../lib/api'
+import type { Activity, Concept, Curriculum, HandView, Legal, LoggedAction, PlayState, PlayStats, PlayStyle, TableView, ReviewedDecision, DailyPlan, DrillMeta, DrillStats, GradeResult, Question, Spot, SpotLeak } from '../lib/api'
 
 export const drills: DrillMeta[] = [
   { key: 'pot-odds', title: 'Pot odds', concept: 'pot-odds', tier: 1, description: 'Need?' },
@@ -197,6 +197,7 @@ export const decisions: ReviewedDecision[] = [
 
 export const playState = (over: Partial<PlayState> = {}): PlayState => ({
   id: 's1',
+  carry: false,
   seats,
   hand: handView(),
   frames: [frame()],
@@ -204,6 +205,25 @@ export const playState = (over: Partial<PlayState> = {}): PlayState => ({
   hands_played: 0,
   net_bb: 0,
   decisions: [],
+  ...over,
+})
+
+export const playStats = (over: Partial<PlayStats> = {}): PlayStats => ({
+  hands: 2,
+  net_bb: -3,
+  bb_per_100: -150,
+  vpip: 0.5,
+  pfr: 0.5,
+  three_bet: null,
+  three_bet_chances: 0,
+  cbet: 1,
+  cbet_chances: 1,
+  wtsd: 0.5,
+  flops_seen: 2,
+  wsd: 0,
+  showdowns: 1,
+  positions: [],
+  leaks: [],
   ...over,
 })
 

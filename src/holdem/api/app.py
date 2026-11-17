@@ -18,6 +18,7 @@ from sqlalchemy import Engine
 
 from holdem.api.deps import SessionDep
 from holdem.api.play_routes import register_play_routes
+from holdem.api.toy_routes import register_toy_routes
 from holdem.curriculum import CONCEPTS, COURSE_MATERIALS
 from holdem.db import drill_stats, make_engine, record_attempt
 from holdem.drills.base import Question, grade
@@ -74,7 +75,7 @@ def local_zone() -> tzinfo:
     return tzlocal.get_localzone()
 
 
-def create_app(
+def create_app(  # noqa: PLR0915 (one flat list of routes)
     engine: Engine | None = None,
     web_dist: Path = WEB_DIST,
     clock: Callable[[], datetime] = utc_now,
@@ -84,6 +85,7 @@ def create_app(
     app.state.engine = engine or make_engine()
     app.state.questions = QuestionStore()
     register_play_routes(app, clock)
+    register_toy_routes(app)
 
     @app.get("/api/health")
     def health() -> dict[str, str]:

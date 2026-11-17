@@ -10,9 +10,11 @@ cartoon bots that reviews every decision you make. It runs on your own machine.
 ## What you get
 
 - **Play** six-max against Rocky, Finn, Roxy, Moby and Blaze. Each has its own style, and your
-  calls and folds are graded after every hand.
+  calls, folds, bets and raises are graded after every hand.
+- **Review** any hand step by step, see your numbers by position, and get a drill for each leak.
 - **Drill** the maths: outs, pot odds, equity, combos, hand reading. Every answer shows the working.
 - **Memorise** preflop charts for every seat, then paint them from memory.
+- **Toy games** (AKQ and a 1-to-10 card game) make bluffing and calling frequencies concrete.
 - **Come back daily.** The app schedules each drill just before you would forget it.
 
 ## Run it

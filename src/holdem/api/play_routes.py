@@ -23,6 +23,7 @@ MAX_SESSIONS = 20
 
 class PlayRequest(BaseModel):
     seed: int | None = None
+    carry: bool = False
 
 
 class ActRequest(BaseModel):
@@ -52,7 +53,7 @@ def register_play_routes(app: FastAPI, clock: Callable[[], datetime]) -> None:
 
     @app.post("/api/play")
     def start_play(body: PlayRequest, session: SessionDep) -> dict[str, Any]:
-        play = new_session(body.seed)
+        play = new_session(body.seed, body.carry)
         sessions[play.id] = play
         while len(sessions) > MAX_SESSIONS:
             sessions.pop(next(iter(sessions)))

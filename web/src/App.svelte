@@ -8,6 +8,7 @@
   import Speed from './lib/pages/Speed.svelte'
   import Stats from './lib/pages/Stats.svelte'
   import Today from './lib/pages/Today.svelte'
+  import Toy from './lib/pages/Toy.svelte'
   import { href, router } from './lib/router.svelte'
 
   const NAV = [
@@ -26,6 +27,7 @@
     'math-lab': 'Math Lab',
     preflop: 'Preflop',
     speed: 'Speed round',
+    toy: 'Toy games',
     play: 'Play',
     review: 'Review',
     stats: 'Progress',
@@ -73,6 +75,8 @@
     {#key route.params[0]}
       <Speed selected={route.params[0]} />
     {/key}
+  {:else if route.page === 'toy'}
+    <Toy />
   {:else if route.page === 'stats'}
     <Stats />
   {:else}

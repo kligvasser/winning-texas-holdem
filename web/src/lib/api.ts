@@ -207,6 +207,8 @@ export interface ReviewedDecision {
 
 export interface PlayState {
   id: string
+  /** Stacks carry over between hands instead of resetting to 100bb. */
+  carry: boolean
   seats: PlayStyle[]
   hand: HandView
   /** Every table position since your last move, for step-by-step animation. */
@@ -243,10 +245,99 @@ export interface PlayStats {
   bb_per_100: number | null
   vpip: number | null
   pfr: number | null
+  three_bet: number | null
+  three_bet_chances: number
+  cbet: number | null
+  cbet_chances: number
+  /** Went to showdown, as a share of flops seen. */
+  wtsd: number | null
+  flops_seen: number
+  /** Won at showdown, as a share of showdowns. */
+  wsd: number | null
+  showdowns: number
+  positions: PositionStats[]
+  leaks: PlayLeak[]
+}
+
+export interface PositionStats {
+  position: string
+  hands: number
+  net_bb: number
+  vpip: number | null
+  pfr: number | null
+  /** Big blinds given up in reviewed decisions. */
+  loss_bb: number
+  mistakes: number
+}
+
+export interface PlayLeak {
+  key: string
+  title: string
+  detail: string
+  /** Where "practise this" leads: a page and its first parameter. */
+  page: string
+  arg: string
+  label: string
 }
 
 export interface HandDetail extends HandSummary {
-  record: { style: string; seats: PlayStyle[]; hand: HandView; net_bb: number; decisions: ReviewedDecision[] }
+  record: {
+    style: string
+    seats: PlayStyle[]
+    hand: HandView
+    /** The table after every action, as you saw it, for the replayer. */
+    frames?: TableView[]
+    net_bb: number
+    decisions: ReviewedDecision[]
+  }
+}
+
+export interface ToyGame {
+  key: string
+  name: string
+  blurb: string
+  /** Card labels, weakest first. */
+  cards: string[]
+}
+
+export interface ToyOutcome {
+  role: 'bettor' | 'caller'
+  card: string
+  their_card: string
+  their_action: string
+  chips: number
+}
+
+export interface ToyResult extends ToyOutcome {
+  action: string
+  /** Average chips each of your options earns against this opponent. */
+  values: Record<string, number>
+  best: string
+  active: string
+  optimal: number
+  lesson: string
+}
+
+export interface ToyFrequency {
+  n: number
+  yours: number | null
+  optimal: number
+  best: number
+}
+
+export interface ToyState {
+  id: string
+  game: ToyGame
+  opponent: PlayStyle
+  hand: { number: number; role: 'bettor' | 'caller'; card: string; actions: string[]; before: ToyOutcome[] }
+  last: ToyResult | null
+  hands_played: number
+  summary: {
+    chips: number
+    expected: number
+    best: number
+    cards: { card: string; bet: ToyFrequency; call: ToyFrequency }[]
+  }
 }
 
 export interface DrillStats {
@@ -311,7 +402,8 @@ export const api = {
     }),
   leaks: () => request<SpotLeak[]>('/api/preflop/leaks'),
   styles: () => request<PlayStyle[]>('/api/play/styles'),
-  play: () => request<PlayState>('/api/play', { method: 'POST', body: '{}' }),
+  play: (carry = false) =>
+    request<PlayState>('/api/play', { method: 'POST', body: JSON.stringify({ carry }) }),
   act: (id: string, kind: string, to?: number) =>
     request<PlayState>(`/api/play/${id}/act`, {
       method: 'POST',
@@ -321,4 +413,9 @@ export const api = {
   coach: (id: string) => request<Coach>(`/api/play/${id}/coach`),
   hands: () => request<{ hands: HandSummary[]; stats: PlayStats }>('/api/hands'),
   hand: (id: number) => request<HandDetail>(`/api/hands/${id}`),
+  toyMenu: () => request<{ games: ToyGame[]; opponents: PlayStyle[] }>('/api/toy'),
+  toyStart: (game: string, opponent: string) =>
+    request<ToyState>('/api/toy', { method: 'POST', body: JSON.stringify({ game, opponent }) }),
+  toyAct: (id: string, action: string) =>
+    request<ToyState>(`/api/toy/${id}/act`, { method: 'POST', body: JSON.stringify({ action }) }),
 }

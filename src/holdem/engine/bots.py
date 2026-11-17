@@ -171,6 +171,25 @@ def hand_class(hole: tuple[int, int], board: list[int]) -> str:
     return "air"
 
 
+def postflop_odds(
+    style: Style, group: str, to_call: int, pot: int, can_raise: bool
+) -> dict[str, float]:
+    """How often a style takes each action after the flop with a hand of class ``group``.
+
+    ``pot`` is everything in the middle, including the bet being faced.
+    """
+    if to_call == 0:
+        bet = style.bet[group] if can_raise else 0.0
+        return {"bet": bet, "check": 1 - bet}
+    stay = style.stay[group]
+    before_bet = pot - to_call  # the pot the bet was made into
+    if to_call >= before_bet * 0.6 and group in ("medium", "draw", "air"):
+        stay *= 0.7  # bets of 60% pot or more push weaker hands out
+    raise_ = style.raise_[group] if can_raise else 0.0
+    stays = 1.0 if to_call <= BIG_BLIND // 2 else max(stay, raise_)
+    return {"raise": raise_, "call": stays - raise_, "fold": 1 - stays}
+
+
 def preflop_raises(hand: HeadsUpHand | TableHand) -> int:
     """How many raises (not counting blinds) happened preflop so far."""
     return sum(1 for a in hand.log if a.street == "preflop" and a.kind == "raise")
@@ -194,18 +213,16 @@ class Bot:
         me = hand.current
         group = hand_class(hand.hole[me], hand.board)
         pot = hand.total_pot
+        odds = postflop_odds(self.style, group, legal.to_call, pot, legal.can_raise)
         if legal.can_check:
-            bet = self.style.bet[group] if legal.can_raise else 0.0
             size = self._size(legal.min_raise_to, legal.max_raise_to, pot)
-            return [("bet", size, bet), ("check", None, 1 - bet)]
-        stay = self.style.stay[group]
-        before_bet = pot - legal.to_call  # the pot the bet was made into
-        if legal.to_call >= before_bet * 0.6 and group in ("medium", "draw", "air"):
-            stay *= 0.7  # bets of 60% pot or more push weaker hands out
-        raise_ = self.style.raise_[group] if legal.can_raise else 0.0
+            return [("bet", size, odds["bet"]), ("check", None, odds["check"])]
         to = min(max(legal.min_raise_to, max(hand.bets) * 3), legal.max_raise_to)
-        stays = 1.0 if legal.to_call <= BIG_BLIND // 2 else max(stay, raise_)
-        return [("raise", to, raise_), ("call", None, stays - raise_), ("fold", None, 1 - stays)]
+        return [
+            ("raise", to, odds["raise"]),
+            ("call", None, odds["call"]),
+            ("fold", None, odds["fold"]),
+        ]
 
     def decide(self, hand: HeadsUpHand | TableHand) -> tuple[str, int | None]:
         """Choose an action for the player to act (assumed to be this bot)."""

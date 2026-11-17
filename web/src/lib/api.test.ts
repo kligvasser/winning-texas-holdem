@@ -52,7 +52,9 @@ describe('api', () => {
     await api.styles()
     expect(fetch).toHaveBeenLastCalledWith('/api/play/styles', expect.anything())
     await api.play()
-    expect(fetch).toHaveBeenLastCalledWith('/api/play', expect.objectContaining({ body: '{}' }))
+    expect(fetch).toHaveBeenLastCalledWith('/api/play', expect.objectContaining({ body: '{"carry":false}' }))
+    await api.play(true)
+    expect(fetch).toHaveBeenLastCalledWith('/api/play', expect.objectContaining({ body: '{"carry":true}' }))
     await api.act('s', 'call')
     expect(fetch).toHaveBeenLastCalledWith('/api/play/s/act', expect.objectContaining({ body: '{"kind":"call"}' }))
     await api.act('s', 'raise', 8)
@@ -65,6 +67,19 @@ describe('api', () => {
     expect(fetch).toHaveBeenLastCalledWith('/api/hands', expect.anything())
     await api.hand(3)
     expect(fetch).toHaveBeenLastCalledWith('/api/hands/3', expect.anything())
+  })
+
+  it('calls the toy game endpoints', async () => {
+    const fetch = mockFetch({})
+    await api.toyMenu()
+    expect(fetch).toHaveBeenLastCalledWith('/api/toy', expect.anything())
+    await api.toyStart('akq', 'nit')
+    expect(fetch).toHaveBeenLastCalledWith(
+      '/api/toy',
+      expect.objectContaining({ method: 'POST', body: '{"game":"akq","opponent":"nit"}' }),
+    )
+    await api.toyAct('t', 'bet')
+    expect(fetch).toHaveBeenLastCalledWith('/api/toy/t/act', expect.objectContaining({ body: '{"action":"bet"}' }))
   })
 
   it('asks for a question with and without a seed', async () => {
