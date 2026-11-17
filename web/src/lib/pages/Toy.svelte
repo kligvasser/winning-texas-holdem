@@ -38,7 +38,13 @@
       reviewing = review
       error = null
     } catch (e) {
-      error = (e as Error).message
+      if ((e as { status?: number }).status === 404 && game) {
+        // The server forgot this game (it restarted): back to the lobby.
+        game = null
+        error = 'That game is gone. Start a new one.'
+      } else {
+        error = (e as Error).message
+      }
     } finally {
       busy = false
     }
@@ -51,7 +57,9 @@
     if (!game || busy || event.metaKey || event.ctrlKey || event.altKey) return
     const key = event.key.toLowerCase()
     if (reviewing) {
-      if (key === 'n' || key === 'enter') {
+      // Enter on a focused button or link belongs to that control.
+      const control = event.target instanceof HTMLButtonElement || event.target instanceof HTMLAnchorElement
+      if (key === 'n' || (key === 'enter' && !control)) {
         event.preventDefault()
         reviewing = false
       }
@@ -245,7 +253,8 @@
     font-weight: 900;
   }
   .game[aria-pressed='true'] {
-    background: color-mix(in srgb, var(--sun) 45%, var(--surface));
+    background: var(--sun);
+    color: var(--on-bright);
   }
   .deck {
     display: flex;

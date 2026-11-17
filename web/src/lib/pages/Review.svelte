@@ -44,7 +44,7 @@
   }
 
   function onkeydown(event: KeyboardEvent) {
-    if (!frames.length) return
+    if (!frames.length || event.metaKey || event.ctrlKey || event.altKey) return
     if (event.key === 'ArrowRight') go(at + 1)
     else if (event.key === 'ArrowLeft') go(at - 1)
   }
@@ -71,7 +71,7 @@
         <button type="button" disabled={at === 0} onclick={() => go(0)}>⏮ Start</button>
         <button type="button" disabled={at === 0} onclick={() => go(at - 1)}>◀ Back</button>
         <span class="step">Step {at + 1} of {frames.length} · {frames[at].street}</span>
-        <button type="submit" disabled={done} onclick={() => go(at + 1)}>Next ▶</button>
+        <button type="button" class="primary" disabled={done} onclick={() => go(at + 1)}>Next ▶</button>
         <button type="button" disabled={done} onclick={() => go(frames.length)}>Show result ⏭</button>
       </div>
       {#if moment && !done}
@@ -199,7 +199,7 @@
     align-items: center;
     padding: 0.9rem;
     border-radius: 1.1rem;
-    background: color-mix(in srgb, var(--tint) 30%, var(--surface));
+    background: color-mix(in srgb, var(--tint, transparent) 30%, var(--surface));
     border: var(--line);
     box-shadow: var(--drop);
     text-align: center;
@@ -264,6 +264,10 @@
   .log,
   .hint {
     color: var(--muted);
+  }
+  .primary {
+    background: linear-gradient(var(--mint), #3fc66b);
+    color: var(--on-bright);
   }
   .replay {
     display: flex;

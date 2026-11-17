@@ -57,7 +57,9 @@ def risk_premium_call(
     win_equity = _without_busted(win, payouts, hero)
     lose_equity = _without_busted(lose, payouts, hero)
     # p * win + (1 - p) * lose = fold  ->  p = (fold - lose) / (win - lose)
-    return chip_need, (fold - lose_equity) / (win_equity - lose_equity)
+    swing = win_equity - lose_equity
+    # With nothing to gain or lose in prize money (flat payouts), only the chips matter.
+    return chip_need, (fold - lose_equity) / swing if swing else chip_need
 
 
 def _without_busted(stacks: list[float], payouts: Sequence[float], hero: int) -> float:

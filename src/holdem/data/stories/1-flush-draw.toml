@@ -40,4 +40,4 @@ decision = "bluff"
 size = [0.66, 1.0]
 folds = ["one_pair"]
 prompt = "Suppose you call. River {river} misses your draw. BB checks. Pot {pot}. BB folds one-pair hands to a bet and calls with two pair or better. Bet {bet} as a bluff, or check?"
-lesson = "A missed draw cannot win at showdown: betting is its only way to win the pot."
+lesson = "A missed draw cannot win at showdown, so a bluff is its only way to win the pot. The bluff still has to work often enough to pay for itself."

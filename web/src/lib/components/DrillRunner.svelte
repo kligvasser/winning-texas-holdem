@@ -126,7 +126,8 @@
 
   function onkeydown(event: KeyboardEvent) {
     const typing = event.target instanceof HTMLInputElement && event.target.value !== ''
-    if ((event.key === 's' || event.key === 'S') && !typing && question && !finished) {
+    const plain = !event.metaKey && !event.ctrlKey && !event.altKey // Ctrl+S is not "skip"
+    if ((event.key === 's' || event.key === 'S') && plain && !typing && question && !finished) {
       event.preventDefault()
       skip()
     }

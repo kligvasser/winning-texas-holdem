@@ -41,6 +41,16 @@ def top_share_range(share: float) -> Range:
     return Range.of(c for c, p in percentile().items() if p <= share)
 
 
+def band_range(above: float, upto: float) -> Range:
+    """Hands ranked below the top ``above`` share and within the top ``upto`` share.
+
+    A bot that calls with these would have raised anything stronger. If the band is empty
+    (the call was forced), fall back to the whole top ``upto`` share.
+    """
+    band = Range.of(c for c, p in percentile().items() if above < p <= upto)
+    return band if len(band) else top_share_range(upto)
+
+
 @dataclass(frozen=True)
 class Style:
     key: str
@@ -366,19 +376,21 @@ def seat_range(style: Style, log: Sequence[Action], seat: int, position: str) ->
         return top_share_range(style.four_bet)
     if my_raises:
         earlier = raises_before(my_raises[0])
-        share = (
-            open_share(style, position)
-            if earlier == 0
-            else three_bet_share(style)
-            if earlier == 1
-            else style.four_bet
-        )
+        # The big blind only raises limpers with its re-raising hands.
+        if earlier == 0 and position != "BB":
+            share = open_share(style, position)
+        elif earlier <= 1:
+            share = three_bet_share(style)
+        else:
+            share = style.four_bet
         if my_calls and my_calls[-1] > my_raises[0]:  # raised, was re-raised, and called
             share = min(share, style.call_3bet)
         return top_share_range(share)
     if my_calls:
         earlier = raises_before(my_calls[0])
-        if earlier == 0:
-            return top_share_range(max(limp_share(style), open_share(style, position)))
-        return top_share_range(call_share(style, position) if earlier == 1 else style.call_3bet)
+        if earlier == 0:  # limped: it would have raised its better hands
+            return band_range(open_share(style, position), limp_share(style))
+        if earlier == 1:  # called a raise: it would have re-raised its best hands
+            return band_range(three_bet_share(style), call_share(style, position))
+        return top_share_range(style.call_3bet)
     return top_share_range(1.0)  # checked the big blind, or has not acted yet

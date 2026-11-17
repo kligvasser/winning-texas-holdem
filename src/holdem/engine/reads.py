@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from holdem.core.cards import Card
-from holdem.core.equity import WeightedCombos, calculate_equity
+from holdem.core.equity import PlayerHolding, WeightedCombos, calculate_equity
 from holdem.core.evaluator import evaluate
 from holdem.core.ranges import Combo
 from holdem.engine.bots import (
@@ -48,6 +48,35 @@ def opponents_in_pot(hand: TableHand, log: list[Action], street: str) -> list[in
         return live
     entered = {a.player for a in log if a.kind in ("call", "raise")}
     return [s for s in live if s in entered] or [hand.positions.index("BB")]
+
+
+def stakes(hand: TableHand, upto: int, street: str) -> tuple[list[int], list[int]]:
+    """Chips every seat has put in, and has left, just before log entry ``upto`` on ``street``."""
+    committed = [0] * hand.seats
+    on_street = [0] * hand.seats
+    current = "preflop"
+
+    def settle() -> None:  # the uncalled part of the biggest bet went back to its owner
+        ranked = sorted(on_street, reverse=True)
+        committed[on_street.index(ranked[0])] -= ranked[0] - ranked[1]
+
+    for action in hand.log[:upto]:
+        if action.street != current:
+            settle()
+            current = action.street
+            on_street = [0] * hand.seats
+        committed[action.player] += action.amount
+        on_street[action.player] += action.amount
+    if street != current:
+        settle()
+    return committed, [stack - c for stack, c in zip(hand.stacks, committed, strict=True)]
+
+
+def callable_pot(hand: TableHand, upto: int, street: str, to_call: int) -> int:
+    """The pot hero can win by calling: nobody's chips count beyond what hero can match."""
+    committed, _ = stakes(hand, upto, street)
+    mine = committed[HERO] + to_call
+    return committed[HERO] + sum(min(c, mine) for c in committed[1:])
 
 
 @lru_cache(maxsize=200_000)
@@ -88,14 +117,19 @@ def equity_against(
 ) -> tuple[float, int]:
     """Hero's equity against the likely hands of the opponents in the pot, and their number."""
     ranges = likely_ranges(styles, hand, upto, street)
-    result = calculate_equity(
-        [hand.hole[HERO], *ranges.values()],
-        hand.board[: BOARD_CARDS[street]],
-        samples=1500,
-        seed=upto,
-        exact_limit=300_000,
-    )
-    return result[0].equity, len(ranges)
+    board = hand.board[: BOARD_CARDS[street]]
+
+    def equity(holdings: list[PlayerHolding]) -> float:
+        result = calculate_equity(
+            [hand.hole[HERO], *holdings], board, samples=1500, seed=upto, exact_limit=300_000
+        )
+        return result[0].equity
+
+    try:
+        return equity(list(ranges.values())), len(ranges)
+    except ValueError:
+        # The narrowed ranges cannot all be dealt at once (two bots pinned to the same cards).
+        return equity([top_share_range(1.0)] * len(ranges)), len(ranges)
 
 
 @dataclass(frozen=True)
@@ -117,7 +151,25 @@ def _share(mine: int, others: list[int]) -> float:
     return 1.0 if mine < best else 1 / (1 + others.count(best))
 
 
-def push_value(
+def _winnings(mine: int, total: int, others: list[tuple[int, int]], dead: int) -> float:
+    """Chips hero collects at showdown having put in ``total``.
+
+    ``others`` are the opponents still in, as (chips put in, hand rank); ``dead`` is money from
+    players who folded. The pot is split into layers at each all-in amount, as side pots are.
+    """
+    won = 0.0
+    paid = 0
+    for level in sorted({total, *(put_in for put_in, _ in others if put_in < total)}):
+        layer = level - paid + sum(min(p, level) - min(p, paid) for p, _ in others)
+        if paid == 0:
+            layer += dead
+        eligible = [rank for put_in, rank in others if put_in >= level]
+        won += layer * (_share(mine, eligible) if eligible else 1.0)
+        paid = level
+    return won
+
+
+def push_value(  # noqa: PLR0915 (one simulation loop reads better in one piece)
     styles: list[Style], hand: TableHand, index: int, samples: int = PUSH_SAMPLES
 ) -> Push | None:
     """Estimate hero's bet or raise at log entry ``index`` (after the flop)."""
@@ -125,11 +177,18 @@ def push_value(
     board = hand.board[: BOARD_CARDS[action.street]]
     ranges = likely_ranges(styles, hand, index, action.street)
     seats = list(ranges)
-    extra = action.amount - action.to_call  # what each opponent has to add to continue
+    committed, behind = stakes(hand, index, action.street)
+    before = committed[HERO]
+    after = before + action.amount
+    folded = sum(c for seat, c in enumerate(committed) if seat != HERO and seat not in ranges)
+    # A caller matches hero's bet as far as its stack goes; a seat that is all in cannot fold.
+    matched = {s: min(committed[s] + behind[s], after) for s in seats}
     faced = action.pot + action.amount
     stay = {
         seat: {
             group: 1 - postflop_odds(styles[seat - 1], group, extra, faced, True)["fold"]
+            if (extra := matched[seat] - committed[seat]) > 0
+            else 1.0
             for group in CLASSES
         }
         for seat in seats
@@ -152,23 +211,30 @@ def push_value(
         full = [*board, *runout]
         mine = evaluate([*hand.hole[HERO], *full])
         ranks = [evaluate([*hole, *full]) for hole in holes]
-        everyone = _share(mine, ranks)
-        check_ev += everyone * action.pot
-        call_ev += everyone * (action.pot + action.to_call) - action.to_call
+        everyone = [(committed[s], rank) for s, rank in zip(seats, ranks, strict=True)]
+        check_ev += _winnings(mine, before, everyone, folded)
+        call_ev += _winnings(mine, before + action.to_call, everyone, folded) - action.to_call
         stays = [stay[s][_group(hole, tuple(board))] for s, hole in zip(seats, holes, strict=True)]
         for subset in itertools.product((False, True), repeat=len(seats)):
             chance = 1.0
             for stays_in, p in zip(subset, stays, strict=True):
                 chance *= p if stays_in else 1 - p
-            callers = [r for r, stays_in in zip(ranks, subset, strict=True) if stays_in]
-            if not callers:
-                fold_all += chance
-                aggressive += chance * action.pot
+            if chance == 0:
                 continue
-            share = _share(mine, callers)
-            aggressive += chance * (share * (faced + extra * len(callers)) - action.amount)
-            called += chance
-            called_share += chance * share
+            callers = [
+                (matched[s], rank)
+                for s, rank, stays_in in zip(seats, ranks, subset, strict=True)
+                if stays_in
+            ]
+            dead = folded + sum(
+                committed[s] for s, stays_in in zip(seats, subset, strict=True) if not stays_in
+            )
+            aggressive += chance * (_winnings(mine, after, callers, dead) - action.amount)
+            if callers:
+                called += chance
+                called_share += chance * _share(mine, [rank for _, rank in callers])
+            else:
+                fold_all += chance
     if not accepted:
         return None
     if action.to_call == 0:

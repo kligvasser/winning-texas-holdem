@@ -143,11 +143,11 @@ button {
     filter 0.15s;
 }
 
-button:hover:not(:disabled) {
+button:hover:not(:disabled):not(.link) {
   filter: brightness(1.06);
 }
 
-button:active:not(:disabled) {
+button:active:not(:disabled):not(.link) {
   transform: translateY(3px);
   box-shadow: 0 0 0 var(--ink);
 }

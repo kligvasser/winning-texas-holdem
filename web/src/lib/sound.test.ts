@@ -18,9 +18,16 @@ function fakeAudio() {
     stop: vi.fn(),
   })
   const built = vi.fn()
+  const resumed = vi.fn()
   class Audio {
     currentTime = 2
     destination = {}
+    state = 'suspended'
+    resume = () => {
+      resumed()
+      this.state = 'running'
+      return Promise.resolve()
+    }
     constructor() {
       built()
     }
@@ -28,7 +35,7 @@ function fakeAudio() {
     createGain = node
   }
   vi.stubGlobal('AudioContext', Audio)
-  return { started, built }
+  return { started, built, resumed }
 }
 
 describe('sound', () => {
@@ -37,13 +44,14 @@ describe('sound', () => {
   })
 
   it('plays notes through one shared audio context, unless muted', () => {
-    const { started, built } = fakeAudio()
+    const { started, built, resumed } = fakeAudio()
     expect(soundOn()).toBe(true)
     expect(play('win')).toBe(true)
     expect(started).toHaveLength(4)
     expect(started[0]).toBe(2)
     expect(play('chip')).toBe(true)
     expect(built).toHaveBeenCalledTimes(1)
+    expect(resumed).toHaveBeenCalledTimes(1) // woken once, then left running
     setSound(false)
     expect(soundOn()).toBe(false)
     expect(play('chip')).toBe(false)

@@ -187,6 +187,12 @@
     cursor: default;
     min-width: 0;
   }
+  button:hover:not(:disabled),
+  button:active:not(:disabled) {
+    transform: none;
+    filter: none;
+    box-shadow: none;
+  }
   .paint button {
     cursor: pointer;
   }

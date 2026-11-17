@@ -52,3 +52,8 @@ def test_risk_premium_when_hero_covers_villain():
 def test_bust_outside_the_money():
     chip, icm = risk_premium_call([500, 300, 200, 100], [70, 30], hero=3, villain=0)
     assert 0 < chip < icm < 1
+
+
+def test_flat_payouts_leave_only_the_chip_price():
+    chip, icm = risk_premium_call([500, 300, 200], [10, 10, 10], hero=1, villain=0)
+    assert icm == chip == 0.5

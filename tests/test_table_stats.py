@@ -99,8 +99,8 @@ def test_frequencies_and_positions():
         record("BB", board=(), net=0.5),
     ]
     report = table_report(records)
-    assert report["vpip"] == 0.75
-    assert report["pfr"] == 0.625
+    assert report["vpip"] == round(6 / 7, 3)  # the walk gave no decision, so it is not counted
+    assert report["pfr"] == round(5 / 7, 3)
     assert report["three_bet_chances"] == 2
     assert report["three_bet"] == 0.5
     assert report["cbet_chances"] == 2
@@ -121,6 +121,7 @@ def test_frequencies_and_positions():
         "mistakes": 1,
     }
     assert report["positions"][-1]["hands"] == 2
+    assert report["positions"][-1]["vpip"] == 1.0  # one real decision in the big blind
     assert report["leaks"] == []  # too few hands to call anything a leak
 
 
@@ -160,5 +161,17 @@ def test_tight_leak_and_healthy_numbers():
     cheap = [record("SB", preflop=fold, decisions=[("call", "leak", 0.3)]) for _ in range(5)]
     assert keys(table_report(cheap)) == []
     # Ten showdowns and most of them won.
-    winner = [record("BTN", preflop=opened, showdown=True, won=True) for _ in range(10)]
+    winner = [record("BTN", preflop=opened, showdown=True, won=True, net=5.0) for _ in range(10)]
     assert keys(table_report(winner)) == []
+    # Chopping the pot or taking only a side pot is not a won showdown.
+    chops = [record("BTN", preflop=opened, showdown=True, won=True, net=-1.0) for _ in range(10)]
+    assert keys(table_report(chops)) == ["showdown"]
+
+
+def test_the_costliest_seat_needs_enough_hands():
+    slip = [("call", "mistake", 2.0)]
+    few = [record("UTG", decisions=slip) for _ in range(4)]  # 2bb a hand, but only four hands
+    many = [record("BTN", decisions=[("call", "mistake", 1.9)]) for _ in range(30)]
+    report = table_report(few + many)
+    position = next(leak for leak in report["leaks"] if leak["key"] == "position")
+    assert position["arg"] == "btn-open"

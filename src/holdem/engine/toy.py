@@ -130,7 +130,28 @@ def nash(game: Game) -> Strategy:
             sum_bet[card] += round_ * bet[card]
             sum_call[card] += round_ * current(regret_call)[card]
     weight = SOLVER_ROUNDS * (SOLVER_ROUNDS + 1) / 2
-    return Strategy(tuple(s / weight for s in sum_bet), tuple(s / weight for s in sum_call))
+    call = tuple(s / weight for s in sum_call)
+    return Strategy(tuple(s / weight for s in sum_bet), _threshold(game, call))
+
+
+def _threshold(game: Game, call: tuple[float, ...]) -> tuple[float, ...]:
+    """The same amount of calling, done with the highest cards first.
+
+    Cards that only beat a bluff are interchangeable, so the solver may spread its calls over
+    them in any way. Calling from the top down is the form people learn; it is kept only if the
+    bettor cannot gain anything against it.
+    """
+    mixed = [card for card in range(game.size) if 0.02 < call[card] < 0.98]
+    mass = sum(call[card] for card in mixed)
+    tidy = list(call)
+    for card in reversed(mixed):
+        tidy[card] = min(1.0, mass)
+        mass -= tidy[card]
+
+    def bettor_gain(strategy: tuple[float, ...]) -> float:
+        return sum(max(bettor_values(game, c, strategy).values()) for c in range(game.size))
+
+    return tuple(tidy) if bettor_gain(tuple(tidy)) <= bettor_gain(call) + 1e-3 else call
 
 
 def _pick(values: dict[str, float], active: str, passive: str, tie: float) -> float:

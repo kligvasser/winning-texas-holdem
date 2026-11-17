@@ -23,19 +23,23 @@
   )
   const raiseWord = $derived(legal.can_check ? 'Bet' : 'Raise')
   let custom = $state('')
+  let invalid = $state(false)
 
   function sendCustom(event: SubmitEvent) {
     event.preventDefault()
-    const to = chipsFromBb(Number(custom))
-    if (Number.isFinite(to) && to >= legal.min_raise_to && to <= legal.max_raise_to) {
-      onact(legal.can_check ? 'bet' : 'raise', to)
-      custom = ''
-    }
+    // "3.5", "3,5" and "3.5bb" all mean the same thing.
+    const typed = custom.trim().toLowerCase().replace(/bb$/, '').replace(',', '.')
+    const to = typed ? chipsFromBb(Number(typed)) : NaN
+    invalid = !(to >= legal.min_raise_to && to <= legal.max_raise_to)
+    if (invalid) return
+    onact(legal.can_check ? 'bet' : 'raise', to)
+    custom = ''
   }
 
   function onkeydown(event: KeyboardEvent) {
-    if (disabled || event.metaKey || event.ctrlKey || event.altKey) return
-    if (event.target instanceof HTMLInputElement) return
+    if (disabled || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return
+    // Typing an amount is not a shortcut; a focused checkbox does not swallow keys.
+    if (event.target instanceof HTMLInputElement && event.target.type !== 'checkbox') return
     const key = event.key.toLowerCase()
     if (key === 'f' && !legal.can_check) onact('fold')
     else if (key === 'c') onact(legal.can_check ? 'check' : 'call')
@@ -82,18 +86,34 @@
       <form class="custom" onsubmit={sendCustom}>
         <input
           bind:value={custom}
+          oninput={() => (invalid = false)}
           inputmode="decimal"
           aria-label="{raiseWord} to (bb)"
+          aria-invalid={invalid}
           placeholder="{toBb(legal.min_raise_to)}–{toBb(legal.max_raise_to)}bb"
           {disabled}
         />
         <button type="submit" {disabled}>{raiseWord}</button>
+        {#if invalid}
+          <span class="hint" role="alert"
+            >Enter {toBb(legal.min_raise_to)} to {toBb(legal.max_raise_to)}bb</span
+          >
+        {/if}
       </form>
     </div>
   {/if}
 </div>
 
 <style>
+  .hint {
+    align-self: center;
+    color: var(--bad);
+    font-weight: 800;
+    font-size: 0.85rem;
+  }
+  input[aria-invalid='true'] {
+    border-color: var(--bad);
+  }
   .bar {
     display: flex;
     flex-direction: column;

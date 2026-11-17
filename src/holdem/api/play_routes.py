@@ -5,15 +5,15 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Path, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from holdem.api.deps import SessionDep
-from holdem.db import PlayedHand, hand_summary, play_stats, save_hand
+from holdem.db import SIX_MAX, PlayedHand, hand_summary, play_stats, save_hand
 from holdem.engine.bots import STYLES
 from holdem.engine.headsup import IllegalActionError
 from holdem.engine.play import PlaySession, new_session
@@ -85,15 +85,22 @@ def register_play_routes(app: FastAPI, clock: Callable[[], datetime]) -> None:
             raise HTTPException(400, str(exc)) from exc
 
     @app.get("/api/hands")
-    def hands(session: SessionDep, limit: int = 50) -> dict[str, Any]:
+    def hands(
+        session: SessionDep, limit: Annotated[int, Query(ge=1, le=500)] = 50
+    ) -> dict[str, Any]:
         rows = session.scalars(
-            select(PlayedHand).order_by(PlayedHand.id.desc()).limit(min(limit, 500))
+            select(PlayedHand)
+            .where(PlayedHand.style == SIX_MAX)
+            .order_by(PlayedHand.id.desc())
+            .limit(limit)
         ).all()
         return {"hands": [hand_summary(r) for r in rows], "stats": play_stats(session)}
 
     @app.get("/api/hands/{hand_id}")
-    def hand_detail(hand_id: int, session: SessionDep) -> dict[str, Any]:
+    def hand_detail(
+        hand_id: Annotated[int, Path(ge=1, le=2**63 - 1)], session: SessionDep
+    ) -> dict[str, Any]:
         row = session.get(PlayedHand, hand_id)
-        if row is None:
+        if row is None or row.style != SIX_MAX:  # heads-up hands from older versions
             raise HTTPException(404, "hand not found")
         return {**hand_summary(row), "record": json.loads(row.record)}

@@ -204,7 +204,6 @@ dependencies = [
     { name = "fsrs" },
     { name = "numpy" },
     { name = "phevaluator" },
-    { name = "pokerkit" },
     { name = "sqlalchemy" },
     { name = "tzlocal" },
     { name = "uvicorn", extra = ["standard"] },
@@ -214,6 +213,7 @@ dependencies = [
 dev = [
     { name = "httpx2" },
     { name = "hypothesis" },
+    { name = "pokerkit" },
     { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -227,7 +227,6 @@ requires-dist = [
     { name = "fsrs", specifier = ">=6.3.3" },
     { name = "numpy", specifier = ">=2.5.5" },
     { name = "phevaluator", specifier = ">=0.6.0" },
-    { name = "pokerkit", specifier = ">=0.7.7" },
     { name = "sqlalchemy", specifier = ">=2.1.8" },
     { name = "tzlocal", specifier = ">=5.4.5" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
@@ -237,6 +236,7 @@ requires-dist = [
 dev = [
     { name = "httpx2", specifier = ">=2.16.2" },
     { name = "hypothesis", specifier = ">=6.170.15" },
+    { name = "pokerkit", specifier = ">=0.7.7" },
     { name = "pyright", specifier = ">=1.1.414" },
     { name = "pytest", specifier = ">=9.2.0" },
     { name = "pytest-cov", specifier = ">=7.1.0" },

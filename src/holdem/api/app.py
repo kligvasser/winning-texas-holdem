@@ -63,7 +63,7 @@ class PaintRequest(BaseModel):
 class AnswerRequest(BaseModel):
     question_id: str
     response: float | str | list[str]
-    elapsed_ms: int | None = Field(default=None, ge=0)
+    elapsed_ms: int | None = Field(default=None, ge=0, le=86_400_000)  # at most a day
 
 
 def utc_now() -> datetime:
@@ -145,7 +145,7 @@ def create_app(  # noqa: PLR0915 (one flat list of routes)
 
     @app.get("/api/today")
     def today(session: SessionDep) -> dict[str, Any]:
-        return daily_plan(session, clock()).public()
+        return daily_plan(session, clock(), zone or local_zone()).public()
 
     @app.get("/api/curriculum")
     def curriculum(session: SessionDep) -> dict[str, Any]:

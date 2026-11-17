@@ -56,6 +56,8 @@ export function play(name: Sound, storage: Storage = localStorage): boolean {
   const Audio = (globalThis as { AudioContext?: typeof AudioContext }).AudioContext
   if (!Audio || !soundOn(storage)) return false
   context ??= new Audio()
+  // Browsers start audio suspended until the page has been clicked.
+  if (context.state === 'suspended') void context.resume()
   const now = context.currentTime
   for (const [frequency, length, shape, delay] of SOUNDS[name] as Note[]) {
     const oscillator = context.createOscillator()

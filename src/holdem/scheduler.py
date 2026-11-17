@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, tzinfo
 from typing import Any
 
 from fsrs import Card, Rating, Scheduler
@@ -189,13 +189,15 @@ def interleave(drills: Sequence[str], per_drill: int) -> list[str]:
     return [drill for _ in range(per_drill) for drill in drills]
 
 
-def daily_plan(session: Session, now: datetime) -> DailyPlan:
+def daily_plan(session: Session, now: datetime, zone: tzinfo = UTC) -> DailyPlan:
     rows = session.scalars(select(ReviewCard)).all()
     cards = {r.drill: Card.from_json(r.card) for r in rows if r.drill in DRILLS}
     due = sorted((d for d, c in cards.items() if c.due <= now), key=lambda d: cards[d].due)
     due = due[:MAX_DUE]
 
-    day_start = _naive(now) - timedelta(hours=24)
+    # "New per day" follows the calendar day in the user's time zone, not a rolling 24 hours.
+    midnight = now.astimezone(zone).replace(hour=0, minute=0, second=0, microsecond=0)
+    day_start = _naive(midnight)
     started_recently = sum(1 for r in rows if r.created_at >= day_start)
     new = pick_new_drills(
         concept_progress(session), set(cards), max(0, NEW_PER_DAY - started_recently)

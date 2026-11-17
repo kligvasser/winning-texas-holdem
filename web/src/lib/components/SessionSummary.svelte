@@ -187,6 +187,11 @@ height: 10px;
     color: var(--text);
     text-decoration: none;
   }
+  @media (prefers-reduced-motion: reduce) {
+    .summary {
+      animation: none;
+    }
+  }
   @keyframes rise {
     from {
       opacity: 0;

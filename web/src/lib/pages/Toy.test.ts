@@ -164,8 +164,20 @@ describe('Toy', () => {
     await fireEvent.click(await screen.findByRole('button', { name: /Check/ }))
     expect(await screen.findByText('You checked. Rocky shows the K.')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'You lose 1 chip' })).toBeInTheDocument()
+    // Enter on a focused button belongs to that button, not to "next hand".
+    await fireEvent.keyDown(screen.getByRole('button', { name: 'Change game' }), { key: 'Enter' })
+    expect(screen.getByRole('heading', { name: 'You lose 1 chip' })).toBeInTheDocument()
     await fireEvent.keyDown(window, { key: 'Enter' })
     expect(screen.getByLabelText('Your card: A')).toBeInTheDocument()
+  })
+
+  it('goes back to the lobby when the server has forgotten the game', async () => {
+    render(Toy)
+    await sit()
+    mocked.toyAct.mockRejectedValueOnce(Object.assign(new Error('session not found'), { status: 404 }))
+    await fireEvent.click(await screen.findByRole('button', { name: /Bet 1/ }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('That game is gone. Start a new one.')
+    expect(screen.getByRole('button', { name: /The AKQ game/ })).toBeInTheDocument()
   })
 
   it('reports errors from the menu and from a move', async () => {

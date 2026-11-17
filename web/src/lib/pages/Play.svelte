@@ -24,6 +24,8 @@
   let tick = $state(0)
   let sweep = $state<number[] | null>(null)
   let timer: ReturnType<typeof setTimeout> | undefined
+  let turn = 0 // bumped whenever an answer still in flight should be ignored
+  let onTable: TableView | null = null // the last position shown, to see which bets just left
   let carry = $state(false)
   let sound = $state(soundOn())
 
@@ -32,7 +34,10 @@
       (list) => (cast = list),
       (e: Error) => (error = e.message),
     )
-    return () => clearTimeout(timer)
+    return () => {
+      turn += 1
+      clearTimeout(timer)
+    }
   })
 
   const names = $derived(game?.seats.map((s) => s.character) ?? [])
@@ -44,12 +49,13 @@
 
   function show(index: number) {
     const frames = game!.frames
-    const before = frames[step]
+    const now = frames[index]
+    const before = onTable ?? now
+    onTable = now
     step = index
     tick += 1
-    const now = frames[index]
     // Bets that left the seats since the last position are on their way to the pot.
-    const cleared = index > 0 && now.bets.every((b) => b === 0) && before.bets.some((b) => b > 0)
+    const cleared = now.bets.every((b) => b === 0) && before.bets.some((b) => b > 0)
     sweep = cleared ? before.bets : null
     const last = index === frames.length - 1
     if (last && now.finished) chime(now.net![0] > 0 ? 'win' : now.net![0] < 0 ? 'lose' : 'chip')
@@ -66,25 +72,47 @@
 
   async function run(work: () => Promise<PlayState>) {
     if (busy) return // a second click or key press while a move is in flight
+    const mine = ++turn
     busy = true
     error = null
     coach = null
     clearTimeout(timer)
     try {
-      game = await work()
+      const next = await work()
+      if (mine !== turn) return // you left the table while this was on its way
+      game = next
       step = 0
       show(pace ? 0 : game.frames.length - 1)
-      if (showCoach && game.legal) coach = await api.coach(game.id)
+      askCoach()
     } catch (e) {
-      error = (e as Error).message
+      if (mine !== turn) return
+      if ((e as { status?: number }).status === 404) {
+        // The server forgot this table (it restarted): back to the lobby.
+        leave()
+        error = 'That table is gone. Deal a new one.'
+      } else {
+        error = (e as Error).message
+      }
     } finally {
-      busy = false
+      if (mine === turn) busy = false
     }
   }
 
-  async function toggleCoach() {
+  /** The coach is a hint: it never blocks play, and a failed hint is just no hint. */
+  function askCoach() {
+    if (!showCoach || !game?.legal) return
+    const mine = turn
+    api.coach(game.id).then(
+      (hint) => {
+        if (mine === turn) coach = hint
+      },
+      () => {},
+    )
+  }
+
+  function toggleCoach() {
     showCoach = !showCoach
-    if (showCoach && game?.legal) coach = await api.coach(game.id).catch(() => null)
+    askCoach()
   }
 
   function toggleSound() {
@@ -93,14 +121,19 @@
   }
 
   function leave() {
+    turn += 1
+    busy = false
     clearTimeout(timer)
     game = null
     coach = null
+    onTable = null
   }
 
   function onkeydown(event: KeyboardEvent) {
-    if (!game || busy) return
-    if (event.key === ' ' && !settled) {
+    if (!game || busy || event.metaKey || event.ctrlKey || event.altKey) return
+    // Space and Enter on a focused button or box belong to that control.
+    const control = event.target instanceof HTMLButtonElement || event.target instanceof HTMLInputElement
+    if (event.key === ' ' && !settled && !control) {
       event.preventDefault()
       skip()
     } else if (event.key.toLowerCase() === 'n' && over) {
@@ -158,7 +191,7 @@
     <PokerTable hand={table} seats={game.seats} {sweep} {tick} />
     {#if over}
       {#key game.hands_played}
-        <div class="banner" class:win={net > 0} class:loss={net < 0}>
+        <div class="banner" class:win={net > 0} class:loss={net < 0} aria-live="polite">
           <h2>
             {#if net > 0}You win {toBb(net)}bb!{:else if net < 0}You lose {toBb(-net)}bb{:else}{game.hand.winners
                 .map((w) => names[w])

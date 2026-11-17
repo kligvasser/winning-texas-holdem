@@ -28,7 +28,8 @@ cd web && npm install && npm run build && cd ..
 uv run python -m holdem
 ```
 
-Then open http://127.0.0.1:8000.
+Then open http://127.0.0.1:8000. Your progress is saved in `data/holdem.sqlite`, relative to where
+you start the app; set `HOLDEM_DATA_DIR` to keep it somewhere fixed.
 
 ## Test it
 

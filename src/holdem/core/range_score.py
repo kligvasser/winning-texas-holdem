@@ -42,7 +42,7 @@ def grade_range(painted: list[str], reveal: dict[str, Any]) -> tuple[float, floa
     best: float = reveal["best"]
     score = range_match(painted, weights, combos)
     chosen = set(painted)
-    total = sum(weights.values())
+    total = sum(weights.values()) or 1.0
     densest = max((weights[c] / combos[c] for c in weights if combos.get(c)), default=1.0)
     missed = sorted(
         (c for c in weights if c not in chosen and weights[c] / total > 0.01),

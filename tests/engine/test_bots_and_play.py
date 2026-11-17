@@ -10,6 +10,7 @@ from holdem.engine.bots import (
     STYLES,
     Bot,
     SeatBot,
+    band_range,
     call_share,
     estimated_range,
     hand_class,
@@ -136,14 +137,25 @@ def test_seat_ranges_follow_position_and_preflop_actions():
     called_3bet = raise_log((1, "raise"), (2, "raise"), (1, "call"))
     assert seat_range(tag, called_3bet, 1, "BTN") == top_share_range(tag.call_3bet)
     limp = raise_log((1, "call"))
-    assert seat_range(station, limp, 1, "HJ") == top_share_range(limp_share(station))
+    limped = seat_range(station, limp, 1, "HJ")
+    assert limped == band_range(open_share(station, "HJ"), limp_share(station))
+    assert "AA" not in limped  # it would have raised its best hands
     called = raise_log((1, "raise"), (2, "call"))
-    assert seat_range(tag, called, 2, "BB") == top_share_range(call_share(tag, "BB"))
+    flat = seat_range(tag, called, 2, "BB")
+    assert flat == band_range(three_bet_share(tag), call_share(tag, "BB"))
+    assert "AA" not in flat and "AA" in top_share_range(call_share(tag, "BB"))
+    # A maniac re-raises everything it would call with, so a call says nothing more.
+    maniac = STYLES["maniac"]
+    assert seat_range(maniac, called, 2, "CO") == top_share_range(call_share(maniac, "CO"))
+    # The big blind raises limpers only with its re-raising hands.
+    iso = raise_log((1, "call"), (2, "raise"))
+    assert seat_range(tag, iso, 2, "BB") == top_share_range(three_bet_share(tag))
+    assert seat_range(tag, iso, 2, "BTN") == top_share_range(open_share(tag, "BTN"))
     assert len(seat_range(tag, called, 2, "CO")) < len(seat_range(tag, called, 2, "BB"))
     cold_call = raise_log((1, "raise"), (2, "raise"), (3, "call"))
     assert seat_range(tag, cold_call, 3, "BTN") == top_share_range(tag.call_3bet)
     limp_call = raise_log((1, "call"), (2, "raise"), (1, "call"))
-    assert seat_range(station, limp_call, 1, "HJ") == top_share_range(limp_share(station))
+    assert seat_range(station, limp_call, 1, "HJ") == limped
     waiting = raise_log((1, "raise"), (2, "check"))
     assert len(seat_range(tag, waiting, 4, "BB")) == 169
     assert len(seat_range(tag, waiting, 2, "BB")) == 169
@@ -285,6 +297,21 @@ def test_preflop_raises_and_checks_are_shown_but_not_graded(monkeypatch):
     (raised,) = review(list(STYLES.values()), option)
     assert raised.verdict == "info"
     assert raised.note.startswith("You raise") and "not graded" in raised.note
+
+
+def test_a_short_stack_is_priced_on_what_it_can_win(monkeypatch):
+    hand = TableHand([30, 400, 400], 0, random.Random(4))
+    hand.act("call")  # hero limps the button
+    hand.act("fold")
+    hand.act("raise", 200)  # the big blind shoves far more than hero has
+    hand.act("call")  # hero calls all in for 28 more
+    monkeypatch.setattr("holdem.engine.play.equity_against", lambda *a: (0.32, 1))
+    call = review(list(STYLES.values()), hand)[1]
+    assert call.to_call == 28
+    assert call.pot == 33  # 30 from the big blind, 2 from hero, 1 dead small blind
+    assert call.need == pytest.approx(28 / 61)
+    assert call.verdict == "mistake"
+    assert "into 16.5bb you needed 46%" in call.note
 
 
 def test_review_grades_bets_and_raises_after_the_flop(monkeypatch):

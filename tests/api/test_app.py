@@ -2,9 +2,11 @@ from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from holdem.api.app import QuestionStore, create_app
 from holdem.core.ranges import grid_class
+from holdem.db import save_hand
 from holdem.drills.base import AnswerKind, Question
 from holdem.drills.math_lab import PreflopEquityDrill
 
@@ -277,3 +279,31 @@ def test_play_sessions_are_capped(client):
     for seed in range(25):
         client.post("/api/play", json={"seed": seed + 2})
     assert client.get(f"/api/play/{first}/coach").status_code == 404
+
+
+def test_bad_numbers_are_rejected_not_crashed_on(client):
+    question = ask(client)
+    huge = {"question_id": question["id"], "response": 25, "elapsed_ms": 10**30}
+    assert client.post("/api/answers", json=huge).status_code == 422
+    fine = {"question_id": question["id"], "response": 25, "elapsed_ms": 1000}
+    assert client.post("/api/answers", json=fine).status_code == 200  # the question survived
+    assert client.get(f"/api/hands/{10**30}").status_code == 422
+    assert client.get("/api/hands/0").status_code == 422
+    assert client.get("/api/hands?limit=-1").status_code == 422
+    assert client.get("/api/hands?limit=501").status_code == 422
+
+
+def test_heads_up_hands_from_older_versions_are_left_out(client, engine):
+    old = {
+        "style": "nit",
+        "net_bb": 3.0,
+        "decisions": [],
+        "hand": {"hole": [["As", "Kd"], ["2c", "2d"]], "board": [], "log": []},
+    }
+    with Session(engine) as session:
+        row = save_hand(session, old, datetime(2026, 11, 1, tzinfo=UTC))
+        old_id = row.id
+    listing = client.get("/api/hands").json()
+    assert listing["hands"] == []
+    assert listing["stats"]["hands"] == 0
+    assert client.get(f"/api/hands/{old_id}").status_code == 404

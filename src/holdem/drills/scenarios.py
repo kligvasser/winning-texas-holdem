@@ -114,8 +114,8 @@ class RangeHitsDrill(Drill):
                 f"Two pair or better: {classes.count('two pair+')} · top pair or overpair: "
                 f"{classes.count('top pair+')} · weaker pair: {classes.count('weaker pair')} · "
                 f"no pair: {classes.count('no pair')}.",
-                "Ranges miss most flops: even wide ranges make a pair only about a third of "
-                "the time. That is why small c-bets work so often.",
+                f"{pct(classes.count('no pair') / len(combos))}% of this range has no pair at all "
+                "here. Hands that miss fold to a bet, which is why small c-bets work so often.",
             ),
             reveal={"grid": range_grid(hand_range), "choices": ["In range"], "label": label},
         )
@@ -416,8 +416,9 @@ class IcmDrill(Drill):
             tolerance=3.0,
             payload=shared,
             explanation=(
-                f"Fold and keep {equities[0]:.1f} of the prize pool; call and win or lose your "
-                "stack. The break-even equity makes both choices worth the same.",
+                f"Fold and keep {equities[0]:.1f} of the prize pool; call and win or lose the "
+                "smaller of the two stacks. The break-even equity makes both choices worth the "
+                "same.",
                 f"ICM needs {pct(icm_need)}% versus {pct(chip_need)}% by chips: a risk premium of "
                 f"{pct(icm_need - chip_need)} points.",
                 "Blinds are ignored to keep the arithmetic clear.",

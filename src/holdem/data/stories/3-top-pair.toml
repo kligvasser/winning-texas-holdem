@@ -44,5 +44,5 @@ board = ["blank"]
 decision = "catch"
 size = [0.75, 1.0]
 bets = ["two_pair_plus", "nothing"]
-prompt = "River {river}: BB bets {bet} into {pot}, with two pair or better for value and missed draws as bluffs. Call or fold?"
-lesson = "On the river your top pair is a bluff-catcher: it beats every bluff and loses to every value hand."
+prompt = "Suppose you call. River {river}: BB bets {bet} into {pot}, with two pair or better for value and missed draws as bluffs. Call or fold?"
+lesson = "On the river a one-pair hand is a bluff-catcher: it beats the bluffs and loses to the value hands. Count the bluffs against the price."

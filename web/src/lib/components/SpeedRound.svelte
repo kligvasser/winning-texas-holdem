@@ -70,7 +70,10 @@
     if (left === 0) finish()
   }
 
+  let round = 0 // bumped on every start and on leaving, so late answers are dropped
+
   function start() {
+    round += 1
     score = 0
     attempts = 0
     error = null
@@ -95,9 +98,10 @@
   async function choose(q: Question, choice: number | string | string[]) {
     if (busy || phase !== 'running') return
     busy = true
+    const mine = round
     try {
       const graded = await api.answer(q.id, choice, Math.round(now() - shownAt))
-      if (phase !== 'running') return
+      if (phase !== 'running' || mine !== round) return
       attempts += 1
       if (graded.correct) {
         score += 1
@@ -105,7 +109,7 @@
       } else {
         missed = graded
         await new Promise((resolve) => setTimeout(resolve, flashMs))
-        if (phase === 'running') await advance()
+        if (phase === 'running' && mine === round) await advance()
       }
     } catch (e) {
       error = (e as Error).message
@@ -115,7 +119,10 @@
     }
   }
 
-  onDestroy(() => clearInterval(timer))
+  onDestroy(() => {
+    round += 1
+    clearInterval(timer)
+  })
 </script>
 
 <section class="speed" aria-label="Speed round">

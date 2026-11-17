@@ -136,6 +136,49 @@ describe('Play', () => {
     expect(screen.queryByLabelText('Coach', { selector: 'p' })).toBeNull()
   })
 
+  it('goes back to the lobby when the server has forgotten the table', async () => {
+    render(Play, { pace: 0 })
+    await sit()
+    mocked.act.mockRejectedValueOnce(Object.assign(new Error('session not found'), { status: 404 }))
+    await fireEvent.click(await screen.findByRole('button', { name: /Call/ }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('That table is gone. Deal a new one.')
+    expect(screen.getByRole('button', { name: 'Deal me in!' })).toBeEnabled()
+  })
+
+  it('ignores an answer that arrives after you left the table', async () => {
+    render(Play, { pace: 0 })
+    await sit()
+    let release: (s: ReturnType<typeof playState>) => void = () => {}
+    let fail: (e: Error) => void = () => {}
+    mocked.act.mockImplementationOnce(() => new Promise((resolve) => (release = resolve)))
+    await fireEvent.click(await screen.findByRole('button', { name: /Call/ }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Leave table' }))
+    release(finished)
+    await Promise.resolve()
+    expect(screen.getByRole('button', { name: 'Deal me in!' })).toBeEnabled()
+    expect(screen.queryByRole('region', { name: 'Poker table' })).toBeNull()
+    // The same goes for a late failure.
+    await sit()
+    mocked.act.mockImplementationOnce(() => new Promise((_, reject) => (fail = reject)))
+    await fireEvent.click(await screen.findByRole('button', { name: /Call/ }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Leave table' }))
+    fail(new Error('late'))
+    await Promise.resolve()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('keeps shortcuts working with the coach box focused and ignores modified keys', async () => {
+    render(Play, { pace: 0 })
+    await sit()
+    const box = await screen.findByRole('checkbox', { name: 'Coach' })
+    mocked.act.mockResolvedValueOnce(finished)
+    await fireEvent.keyDown(box, { key: 'c' })
+    expect(mocked.act).toHaveBeenCalledWith('s1', 'call', undefined)
+    await screen.findByRole('heading', { name: 'You win 10bb!' })
+    await fireEvent.keyDown(window, { key: 'n', metaKey: true })
+    expect(mocked.nextHand).not.toHaveBeenCalled()
+  })
+
   it('sends one action even when you click twice quickly', async () => {
     render(Play, { pace: 0 })
     await sit()

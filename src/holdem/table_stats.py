@@ -51,7 +51,8 @@ def _hand_facts(record: dict[str, Any]) -> dict[str, Any]:
         "cbet": cbet_chance and flop[0]["kind"] == "bet",
         "saw_flop": saw_flop,
         "showdown": showdown,
-        "won_showdown": showdown and HERO in hand["winners"],
+        "won_showdown": showdown and record["net_bb"] > 0,  # a chop or a side pot is not a win
+        "chance": bool(mine),  # a walk in the big blind gives you no decision to count
     }
 
 
@@ -103,8 +104,9 @@ def _leaks(
                     "Drill facing a raise",
                 )
             )
-    worst = max(positions, key=lambda p: p["loss_bb"] / p["hands"], default=None)
-    if worst and worst["hands"] >= 5 and worst["loss_bb"] >= COSTLY_BB:
+    costly = [p for p in positions if p["hands"] >= 5 and p["loss_bb"] >= COSTLY_BB]
+    worst = max(costly, key=lambda p: p["loss_bb"] / p["hands"], default=None)
+    if worst:
         leaks.append(
             _leak(
                 "position",
@@ -184,9 +186,18 @@ def table_report(records: list[dict[str, Any]]) -> dict[str, Any]:
                 mistakes += decision["verdict"] == "mistake"
         seat = seats.setdefault(
             facts["position"],
-            {"hands": 0, "net_bb": 0.0, "vpip": 0, "pfr": 0, "loss_bb": 0.0, "mistakes": 0},
+            {
+                "hands": 0,
+                "chances": 0,
+                "net_bb": 0.0,
+                "vpip": 0,
+                "pfr": 0,
+                "loss_bb": 0.0,
+                "mistakes": 0,
+            },
         )
         seat["hands"] += 1
+        seat["chances"] += facts["chance"]
         seat["net_bb"] += record["net_bb"]
         seat["vpip"] += facts["vpip"]
         seat["pfr"] += facts["pfr"]
@@ -198,8 +209,8 @@ def table_report(records: list[dict[str, Any]]) -> dict[str, Any]:
             "position": name,
             "hands": seat["hands"],
             "net_bb": round(seat["net_bb"], 2),
-            "vpip": _rate(seat["vpip"], seat["hands"]),
-            "pfr": _rate(seat["pfr"], seat["hands"]),
+            "vpip": _rate(seat["vpip"], seat["chances"]),
+            "pfr": _rate(seat["pfr"], seat["chances"]),
             "loss_bb": round(seat["loss_bb"], 2),
             "mistakes": seat["mistakes"],
         }
@@ -207,8 +218,8 @@ def table_report(records: list[dict[str, Any]]) -> dict[str, Any]:
         if (seat := seats.get(name))
     ]
     rates = {
-        "vpip": _rate(count["vpip"], hands),
-        "pfr": _rate(count["pfr"], hands),
+        "vpip": _rate(count["vpip"], count["chance"]),
+        "pfr": _rate(count["pfr"], count["chance"]),
         "three_bet": _rate(count["three_bet"], count["three_bet_chance"]),
         "cbet": _rate(count["cbet"], count["cbet_chance"]),
         "wtsd": _rate(count["showdown"], count["saw_flop"]),

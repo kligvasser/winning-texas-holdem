@@ -290,8 +290,8 @@ CONCEPTS: tuple[Concept, ...] = (
         points=(
             "Villains do not hold one hand; they hold every hand their actions allow. Weigh "
             "your equity across all of them.",
-            "Unpaired flops miss most ranges: a typical opening range makes a pair or better "
-            "only about a third of the time.",
+            "Flops miss ranges often: a typical opening range has a pair or better only about "
+            "half the time, and top pair or better far less often.",
             "Ask two questions: what share of the range am I ahead of now, and how often do I "
             "improve against the rest?",
         ),

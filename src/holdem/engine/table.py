@@ -3,7 +3,8 @@
 Amounts are chips: the small blind is 1 and the big blind 2, so 1bb = 2 chips. Seats are numbered
 clockwise. The seat after the button posts the small blind (heads-up, the button does), the next
 one the big blind, and the action starts to the big blind's left. An all-in raise smaller than a
-full raise does not reopen the betting: players who already acted may only call it or fold.
+full raise does not reopen the betting: players who already acted may only call it or fold, unless
+the raises since they acted add up to a full raise.
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ class TableHand:
     committed: list[int] = field(init=False)  # chips put in over the whole hand
     folded: list[bool] = field(init=False)
     acted: list[bool] = field(init=False)
+    faced: list[int] = field(init=False)  # the bet level each seat last acted against
     pot: int = field(init=False, default=0)  # collected from finished streets
     street: int = field(init=False, default=0)
     current: int = field(init=False)
@@ -63,6 +65,7 @@ class TableHand:
         self.committed = [0] * n
         self.folded = [False] * n
         self.acted = [False] * n
+        self.faced = [0] * n
         self.winnings = [0] * n
         small = self.button if n == 2 else (self.button + 1) % n
         big = (small + 1) % n
@@ -103,8 +106,11 @@ class TableHand:
         return Legal(
             to_call=to_call,
             can_check=to_call == 0,
-            # Acting again after already acting means a short all-in came in between.
-            can_raise=opponents_with_chips and all_in_total > top and not self.acted[player],
+            # Acting again after already acting means short all-ins came in between: they
+            # reopen the betting only once they add up to a full raise.
+            can_raise=opponents_with_chips
+            and all_in_total > top
+            and (not self.acted[player] or top - self.faced[player] >= self.last_raise),
             min_raise_to=min(top + max(self.last_raise, BIG_BLIND), all_in_total),
             max_raise_to=all_in_total,
         )
@@ -144,19 +150,20 @@ class TableHand:
                         f"raise to between {legal.min_raise_to} and {legal.max_raise_to}"
                     )
                 facing = max(self.bets)
-                full = to - facing >= self.last_raise
+                full = facing == 0 or to - facing >= self.last_raise
                 amount = to - self.bets[player]
                 self._put(player, amount)
                 self._record(
                     player, "bet" if facing == 0 else "raise", amount, before, legal.to_call
                 )
                 if full:  # a short all-in leaves earlier actors closed
-                    self.last_raise = to - facing
+                    self.last_raise = max(to - facing, BIG_BLIND)
                     self.acted = [False] * self.seats
             case _:
                 raise IllegalActionError(f"unknown action {kind!r}")
         self.raisable.append(legal.can_raise)
         self.acted[player] = True
+        self.faced[player] = max(self.bets)
         self._advance()
 
     # ----------------------------------------------------------------- internals
@@ -221,6 +228,7 @@ class TableHand:
         self.street += 1
         self.board.extend(self._deck.pop() for _ in range(3 if self.street == 1 else 1))
         self.acted = [False] * self.seats
+        self.faced = [0] * self.seats
         self.last_raise = BIG_BLIND
         first = self._next_to_act(self.button)
         assert first is not None

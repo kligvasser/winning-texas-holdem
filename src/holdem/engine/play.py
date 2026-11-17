@@ -16,10 +16,11 @@ from typing import Any
 from holdem.core.cards import cards_str
 from holdem.engine.bots import STYLES, SeatBot, Style
 from holdem.engine.headsup import BIG_BLIND
-from holdem.engine.reads import BOARD_CARDS, HERO, equity_against, push_value
+from holdem.engine.reads import BOARD_CARDS, HERO, callable_pot, equity_against, push_value
 from holdem.engine.table import TableHand
 
 SEATS = 6
+SIX_MAX = "6-max"
 STACK = 200  # chips: 100bb
 REBUY_BELOW = 20  # with carried stacks, anyone under 10bb is topped up to 100bb
 MISTAKE_BB = 1.0
@@ -84,8 +85,11 @@ def review(styles: list[Style], hand: TableHand) -> list[Decision]:
         verdict = "info"
         pushing = action.kind in ("bet", "raise")
         push = push_value(styles, hand, index) if pushing and action.street != "preflop" else None
+        pot = action.pot
         if action.to_call:
-            need = action.to_call / (action.pot + action.to_call)
+            # A short stack cannot win more from each opponent than it puts in itself.
+            pot = callable_pot(hand, index, action.street, action.to_call)
+            need = action.to_call / (pot + action.to_call)
         if push:
             loss = bb(max(0.0, push.passive - push.aggressive))
             verdict = _verdict(loss)
@@ -98,7 +102,7 @@ def review(styles: list[Style], hand: TableHand) -> list[Decision]:
             )
         elif action.to_call:
             assert need is not None
-            call_ev = equity * (action.pot + action.to_call) - action.to_call
+            call_ev = equity * (pot + action.to_call) - action.to_call
             if action.kind == "fold":
                 loss = max(0.0, call_ev)
             elif action.kind == "call":
@@ -107,7 +111,7 @@ def review(styles: list[Style], hand: TableHand) -> list[Decision]:
             if not pushing:
                 verdict = _verdict(loss)
             note = (
-                f"Facing {bb(action.to_call):g}bb into {bb(action.pot):g}bb you needed {need:.0%}; "
+                f"Facing {bb(action.to_call):g}bb into {bb(pot):g}bb you needed {need:.0%}; "
                 f"against {_against(opponents)} you had about {equity:.0%}."
             )
             if pushing:
@@ -124,7 +128,7 @@ def review(styles: list[Style], hand: TableHand) -> list[Decision]:
                 board=board,
                 action=action.kind,
                 amount=action.amount,
-                pot=action.pot,
+                pot=pot,
                 to_call=action.to_call,
                 equity=equity,
                 opponents=opponents,
@@ -209,7 +213,7 @@ class PlaySession:
             raise ValueError("there is no decision to coach")
         hand = self.hand
         legal = hand.legal()
-        pot = hand.total_pot
+        pot = callable_pot(hand, len(hand.log), hand.street_name, legal.to_call)
         equity, opponents = equity_against(self.styles, hand, len(hand.log), hand.street_name)
         need = legal.to_call / (pot + legal.to_call) if legal.to_call else None
         return {
@@ -251,7 +255,7 @@ class PlaySession:
     def record(self) -> dict[str, Any]:
         """Everything needed to replay and review a finished hand."""
         return {
-            "style": "6-max",
+            "style": SIX_MAX,
             "seats": self.seats(),
             "hand": self.hand.public(viewer=HERO, reveal=True),
             "frames": self.history,

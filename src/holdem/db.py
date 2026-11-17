@@ -13,6 +13,7 @@ from typing import Any
 from sqlalchemy import Engine, String, create_engine, event, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
+from holdem.engine.play import SIX_MAX  # older heads-up hands are kept but not shown
 from holdem.table_stats import table_report
 
 DEFAULT_DATA_DIR = Path("data")
@@ -197,7 +198,7 @@ def hand_summary(row: PlayedHand) -> dict[str, Any]:
 
 def play_stats(session: Session) -> dict[str, Any]:
     """Your numbers across stored hands: results, frequencies by position and leaks."""
-    rows = session.scalars(select(PlayedHand)).all()
+    rows = session.scalars(select(PlayedHand).where(PlayedHand.style == SIX_MAX)).all()
     n = len(rows)
     net = round(sum(r.net_bb for r in rows), 2)
     return {

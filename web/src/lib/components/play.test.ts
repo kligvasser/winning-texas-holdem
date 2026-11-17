@@ -104,9 +104,18 @@ describe('ActionBar', () => {
     await fireEvent.input(field, { target: { value: '20' } })
     await fireEvent.submit(field.closest('form')!)
     expect(onact).toHaveBeenLastCalledWith('raise', 40)
+    await fireEvent.input(field, { target: { value: '12,5bb' } }) // a comma and a unit are fine
+    await fireEvent.submit(field.closest('form')!)
+    expect(onact).toHaveBeenLastCalledWith('raise', 25)
     const calls = onact.mock.calls.length
     await fireEvent.input(field, { target: { value: '1' } }) // below the minimum
     await fireEvent.submit(field.closest('form')!)
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter 4 to 95bb')
+    await fireEvent.input(field, { target: { value: '' } })
+    expect(screen.queryByRole('alert')).toBeNull()
+    await fireEvent.submit(field.closest('form')!) // nothing typed
+    await fireEvent.keyDown(window, { key: 'c', repeat: true }) // a held key
     await fireEvent.keyDown(field, { key: 'f' }) // typing in the box is not a shortcut
     await fireEvent.keyDown(window, { key: 'c', metaKey: true })
     await fireEvent.keyDown(window, { key: '9' })

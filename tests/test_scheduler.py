@@ -197,3 +197,15 @@ def test_concurrent_first_saves_do_not_conflict(engine):
         stored = load_card(first, "outs")
         assert stored is not None
         assert stored.due == NOW + timedelta(days=1)
+
+
+def test_new_drills_follow_the_local_calendar_day(session):
+    from zoneinfo import ZoneInfo  # noqa: PLC0415
+
+    zone = ZoneInfo("Europe/Berlin")
+    evening = datetime(2026, 11, 16, 21, 0, tzinfo=zone)
+    answer(session, "hand-ranking", now=evening)
+    answer(session, "showdown", now=evening)
+    assert daily_plan(session, evening + timedelta(hours=2), zone).new == []  # same day
+    next_morning = datetime(2026, 11, 17, 10, 0, tzinfo=zone)
+    assert daily_plan(session, next_morning, zone).new  # a new day, well under 24 hours later

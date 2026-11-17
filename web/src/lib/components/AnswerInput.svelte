@@ -179,12 +179,7 @@
   .mark {
     margin-left: auto;
     font-weight: 700;
-  }
-  .right .mark {
-    color: var(--good);
-  }
-  .wrong .mark {
-    color: var(--bad);
+    color: var(--text);
   }
   kbd {
     font-size: 0.75rem;

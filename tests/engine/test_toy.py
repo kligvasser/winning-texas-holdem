@@ -167,3 +167,11 @@ def test_opponent_can_check_behind_before_your_turn():
             assert toy.summary()["cards"][0]["call"]["yours"] is None
             return
     raise AssertionError("the station never checked behind")
+
+
+def test_optimal_calling_is_a_threshold():
+    from holdem.engine.toy import GAMES, nash  # noqa: PLC0415
+
+    call = nash(GAMES["ten"]).call
+    assert list(call) == sorted(call)  # higher cards never call less often
+    assert sum(0.02 < c < 0.98 for c in call) <= 1  # at most one card mixes

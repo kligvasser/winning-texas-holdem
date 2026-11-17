@@ -204,3 +204,37 @@ def test_a_full_raise_over_a_short_all_in_reopens_the_betting():
     hand.act("raise", 40)  # seat 0 makes a full raise
     assert hand.current == 1
     assert hand.legal().can_raise
+
+
+def test_short_all_ins_that_add_up_to_a_full_raise_reopen_the_betting():
+    hand = table([30, 40, 200, 200])  # blinds on seats 1 and 2, seat 3 acts first
+    hand.act("raise", 20)  # seat 3 opens: a raise of 18
+    hand.act("raise", 30)  # seat 0 is all in for 10 more: short
+    hand.act("raise", 40)  # seat 1 is all in for 10 more: short again
+    hand.act("call")  # the big blind
+    assert hand.current == 3
+    legal = hand.legal()  # 20 more than seat 3 last faced: a full raise in total
+    assert legal.can_raise
+    assert legal.min_raise_to == 58
+
+    single = table([30, 40, 200, 200])
+    single.act("raise", 20)
+    single.act("raise", 30)  # one short all-in only
+    single.act("fold")
+    single.act("call")  # the big blind
+    assert single.current == 3
+    assert not single.legal().can_raise
+
+
+def test_a_short_all_in_bet_still_opens_the_betting():
+    hand = table([200, 200, 7])
+    hand.act("raise", 6)
+    hand.act("call")
+    hand.act("call")  # seat 2 has one chip left
+    hand.act("check")  # seat 1
+    hand.act("bet", 1)  # seat 2 is all in for less than a big blind
+    hand.act("call")  # seat 0
+    legal = hand.legal()  # seat 1 only checked, so the bet is new to it
+    assert hand.current == 1
+    assert legal.can_raise
+    assert legal.min_raise_to == 3
