@@ -51,7 +51,7 @@
       inset 0 0 0 0.5rem var(--wood),
       inset 0 0 0 calc(0.5rem + 3px) var(--ink),
       0 6px 0 var(--ink);
-    background: radial-gradient(ellipse at 50% 40%, #3fd07a, #1c9a52 70%, #15803f);
+    background: radial-gradient(ellipse at 50% 40%, var(--felt-a), var(--felt-b) 70%, var(--felt-c));
     color: #fff;
     min-height: 3rem;
   }

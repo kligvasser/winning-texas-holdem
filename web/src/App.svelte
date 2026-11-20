@@ -48,7 +48,7 @@
   </nav>
 </header>
 
-<main>
+<main tabindex="-1">
   {#if route.page === 'home'}
     <Home />
   {:else if route.page === 'today'}

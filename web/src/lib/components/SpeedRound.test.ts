@@ -121,4 +121,50 @@ describe('SpeedRound', () => {
     await fireEvent.click(screen.getByRole('button', { name: /Start/ }))
     expect(await screen.findByLabelText('Seconds left')).toHaveTextContent('60s')
   })
+
+  it('keeps the result when a request fails after time is up', async () => {
+    let fail: (e: Error) => void = () => {}
+    answer.mockResolvedValueOnce(correctResult).mockImplementationOnce(() => new Promise((_, reject) => (fail = reject)))
+    render(SpeedRound, props)
+    await fireEvent.click(screen.getByRole('button', { name: /Start/ }))
+    await choose(/Player 1/)
+    await waitFor(() => expect(screen.getByLabelText('Speed score')).toHaveTextContent('⚡ 1'))
+    await choose(/Player 1/)
+    clock += 10_000
+    expect(await screen.findByRole('heading', { name: 'New personal best!' })).toBeInTheDocument()
+    fail(new Error('offline'))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(screen.getByRole('heading', { name: 'New personal best!' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('drops a question dealt for a round that has ended, even if it fails', async () => {
+    const waiting: { resolve: (q: typeof choiceQuestion) => void; reject: (e: Error) => void }[] = []
+    question.mockImplementation(() => new Promise((resolve, reject) => waiting.push({ resolve, reject })))
+    render(SpeedRound, props)
+    await fireEvent.click(screen.getByRole('button', { name: /Start/ }))
+    clock += 10_000
+    await screen.findByRole('heading', { name: "Time's up" })
+    await fireEvent.click(screen.getByRole('button', { name: 'Play again' }))
+    waiting[0].resolve({ ...choiceQuestion, id: 'old' }) // the first round's question
+    await new Promise((r) => setTimeout(r, 0))
+    expect(screen.getByText('Dealing…')).toBeInTheDocument()
+    clock += 10_000
+    await screen.findByRole('heading', { name: "Time's up" })
+    waiting[4].reject(new Error('late')) // the second round's question
+    await new Promise((r) => setTimeout(r, 0))
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('leaves Enter to a focused link or a held key', async () => {
+    render(SpeedRound, props)
+    const link = document.createElement('a')
+    link.href = '#/speed/outs'
+    document.body.append(link)
+    await fireEvent.keyDown(link, { key: 'Enter' })
+    await fireEvent.keyDown(window, { key: 'Enter', repeat: true })
+    expect(screen.getByRole('button', { name: /Start/ })).toBeInTheDocument()
+    expect(question).not.toHaveBeenCalled()
+    link.remove()
+  })
 })

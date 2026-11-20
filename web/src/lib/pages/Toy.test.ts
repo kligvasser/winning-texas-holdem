@@ -194,4 +194,48 @@ describe('Toy', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('session not found')
     expect(screen.getByRole('button', { name: /Bet 1/ })).toBeEnabled()
   })
+
+  it('offers to try again when the menu cannot load', async () => {
+    mocked.toyMenu.mockRejectedValueOnce(new Error('offline'))
+    render(Toy)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the games: offline')
+    await fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('button', { name: 'Play Rocky' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('stays in the lobby when a move arrives after you changed game', async () => {
+    render(Toy)
+    await sit()
+    let release: (s: ToyState) => void = () => {}
+    let fail: (e: Error) => void = () => {}
+    mocked.toyAct.mockImplementationOnce(() => new Promise((resolve) => (release = resolve)))
+    await fireEvent.click(await screen.findByRole('button', { name: /Bet 1/ }))
+    await fireEvent.click(screen.getByRole('button', { name: /Bet 1/ })) // already on its way
+    expect(mocked.toyAct).toHaveBeenCalledTimes(1)
+    await fireEvent.click(screen.getByRole('button', { name: 'Change game' }))
+    release(afterBet)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(screen.getByRole('button', { name: 'Play Rocky' })).toBeEnabled()
+    expect(screen.queryByRole('region', { name: 'Toy table' })).toBeNull()
+    await sit()
+    mocked.toyAct.mockImplementationOnce(() => new Promise((_, reject) => (fail = reject)))
+    await fireEvent.click(await screen.findByRole('button', { name: /Bet 1/ }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Change game' }))
+    fail(new Error('late'))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('keeps keyboard focus beside the buttons as the result comes and goes', async () => {
+    render(Toy)
+    await sit()
+    mocked.toyAct.mockResolvedValueOnce(afterBet)
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    await fireEvent.keyDown(window, { key: 'b' })
+    const result = await screen.findByRole('region', { name: 'Hand result' })
+    await vi.waitFor(() => expect(result).toHaveFocus())
+    await fireEvent.keyDown(result, { key: 'Enter' })
+    await vi.waitFor(() => expect(screen.getByRole('group', { name: 'Your action' })).toHaveFocus())
+  })
 })

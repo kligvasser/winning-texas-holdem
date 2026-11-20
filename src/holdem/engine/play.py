@@ -9,15 +9,18 @@ price, bets and raises after the flop by how often the bots fold and what you ha
 from __future__ import annotations
 
 import random
+import secrets
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
 from holdem.core.cards import cards_str
+from holdem.core.ranges import class_of_combo
 from holdem.engine.bots import STYLES, SeatBot, Style
 from holdem.engine.headsup import BIG_BLIND
 from holdem.engine.reads import BOARD_CARDS, HERO, callable_pot, equity_against, push_value
 from holdem.engine.table import TableHand
+from holdem.preflop import FOLD, SPOTS, Spot
 
 SEATS = 6
 SIX_MAX = "6-max"
@@ -73,6 +76,39 @@ def _verdict(loss: float) -> str:
     return "mistake" if loss >= MISTAKE_BB else "leak" if loss >= LEAK_BB else "good"
 
 
+OPEN_CHARTS = {spot.position: spot for spot in SPOTS if spot.kind == "open"}
+
+
+def opening_chart(hand: TableHand, upto: int) -> Spot | None:
+    """Your seat's opening chart, when nobody has entered the pot before log entry ``upto``.
+
+    First in, raw equity against the blinds says little: players behind you, position and how
+    much of that equity you get to realise decide the play, which is what the chart captures.
+    """
+    entered = any(a.kind in ("call", "raise") for a in hand.log[:upto])
+    return None if entered else OPEN_CHARTS.get(hand.positions[HERO])
+
+
+def chart_advice(spot: Spot, hand: TableHand) -> tuple[str, str, bool]:
+    """The hand's class, what the chart does with it, and whether it sits on the chart's edge."""
+    name = class_of_combo(*hand.hole[HERO])
+    return name, spot.action_for(name), spot.is_boundary(name)
+
+
+def _first_in(spot: Spot, hand: TableHand, kind: str) -> tuple[str, str]:
+    """Verdict and note for a first-in decision, graded against the opening chart."""
+    name, advice, edge = chart_advice(spot, hand)
+    does = "folds" if advice == FOLD else "raises"
+    line = f"First in from {spot.position}, the chart {does} {name}."
+    if kind == "call":
+        return "leak", f"{line} Limping gives up the chance to win the blinds; raise or fold."
+    if (kind == "fold") == (advice == FOLD):
+        return "good", line
+    if edge:
+        return "good", f"{line} It sits on the edge of the chart, so either play is fine."
+    return "leak", f"{line} You chose to {kind}."
+
+
 def review(styles: list[Style], hand: TableHand) -> list[Decision]:
     decisions = []
     for index, action in enumerate(hand.log):
@@ -90,7 +126,10 @@ def review(styles: list[Style], hand: TableHand) -> list[Decision]:
             # A short stack cannot win more from each opponent than it puts in itself.
             pot = callable_pot(hand, index, action.street, action.to_call)
             need = action.to_call / (pot + action.to_call)
-        if push:
+        chart = opening_chart(hand, index) if action.street == "preflop" else None
+        if chart:
+            verdict, note = _first_in(chart, hand, action.kind)
+        elif push:
             loss = bb(max(0.0, push.passive - push.aggressive))
             verdict = _verdict(loss)
             verb = "Betting" if action.kind == "bet" else "Raising"
@@ -216,7 +255,10 @@ class PlaySession:
         pot = callable_pot(hand, len(hand.log), hand.street_name, legal.to_call)
         equity, opponents = equity_against(self.styles, hand, len(hand.log), hand.street_name)
         need = legal.to_call / (pot + legal.to_call) if legal.to_call else None
+        chart = opening_chart(hand, len(hand.log)) if hand.street_name == "preflop" else None
+        advice = chart_advice(chart, hand)[1] if chart else None
         return {
+            "chart": advice,  # first in, follow the opening chart instead of the price
             "to_call_bb": bb(legal.to_call),
             "pot_bb": bb(pot),
             "need": None if need is None else round(need, 4),
@@ -265,4 +307,4 @@ class PlaySession:
 
 
 def new_session(seed: int | None = None, carry: bool = False) -> PlaySession:
-    return PlaySession(random.randrange(1 << 30) if seed is None else seed, carry)
+    return PlaySession(secrets.randbits(63) if seed is None else seed, carry)

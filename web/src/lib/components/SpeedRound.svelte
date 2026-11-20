@@ -54,12 +54,17 @@
 
   async function advance() {
     missed = null
+    const mine = round
+    const live = () => phase === 'running' && mine === round
     try {
       const next = queue.shift()!
       refill()
-      question = await next
+      const dealt = await next
+      if (!live()) return // the round ended or restarted while this was on its way
+      question = dealt
       shownAt = now()
     } catch (e) {
+      if (!live()) return
       error = (e as Error).message
       finish()
     }
@@ -88,6 +93,7 @@
     void advance()
   }
 
+  /** Ends the round once: every caller first checks the round is still running. */
   function finish() {
     clearInterval(timer)
     phase = 'done'
@@ -112,6 +118,7 @@
         if (phase === 'running' && mine === round) await advance()
       }
     } catch (e) {
+      if (phase !== 'running' || mine !== round) return
       error = (e as Error).message
       finish()
     } finally {
@@ -169,7 +176,9 @@
 
 <svelte:window
   onkeydown={(e) => {
-    if (phase !== 'running' && e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) start()
+    // Enter on a focused button or link belongs to that control.
+    const control = e.target instanceof HTMLButtonElement || e.target instanceof HTMLAnchorElement
+    if (phase !== 'running' && e.key === 'Enter' && !e.repeat && !control) start()
   }}
 />
 
@@ -178,7 +187,7 @@
     text-align: center;
     padding: 2rem 1rem;
     border-radius: 1.4rem;
-    background: color-mix(in srgb, var(--sun) 22%, var(--surface));
+    background: color-mix(in srgb, var(--sun) var(--wash), var(--surface));
     border: 3px solid var(--ink);
     box-shadow: 0 6px 0 var(--ink);
   }

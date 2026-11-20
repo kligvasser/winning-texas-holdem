@@ -11,6 +11,7 @@ def test_database_url_uses_data_dir(tmp_path, monkeypatch):
     url = database_url()
     assert url == f"sqlite:///{tmp_path / 'd' / 'holdem.sqlite'}"
     assert (tmp_path / "d").is_dir()
+    assert (tmp_path / "d").stat().st_mode & 0o077 == 0  # other accounts cannot read it
     engine = make_engine()
     assert str(engine.url) == url
     engine.dispose()
@@ -43,6 +44,14 @@ def test_main_runs_uvicorn(monkeypatch):
     assert calls["app"] == "holdem.api.app:create_app"
     assert calls["port"] == 9000
     assert calls["factory"] is True
+
+
+def test_main_warns_when_open_to_the_network(monkeypatch, capsys):
+    monkeypatch.setattr("uvicorn.run", lambda *args, **kwargs: None)
+    entry.main([])
+    assert capsys.readouterr().err == ""
+    entry.main(["--host", "0.0.0.0"])
+    assert "no login" in capsys.readouterr().err
 
 
 def test_naive_timestamps_are_treated_as_utc():

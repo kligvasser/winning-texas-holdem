@@ -2,6 +2,7 @@
   import { api, type DailyPlan, type DrillMeta } from '../api'
   import DrillRunner from '../components/DrillRunner.svelte'
   import { untrack } from 'svelte'
+  import LoadError from '../components/LoadError.svelte'
   import { href } from '../router.svelte'
   import { loadSession, saveSession, type SavedSession, type SessionProgress } from '../session'
 
@@ -27,7 +28,8 @@
     saved = null
   }
 
-  $effect(() => {
+  function load() {
+    error = null
     Promise.all([api.today(), api.drills()]).then(
       ([p, d]: [DailyPlan, DrillMeta[]]) => {
         plan = p
@@ -35,7 +37,9 @@
       },
       (e: Error) => (error = e.message),
     )
-  })
+  }
+
+  $effect(load)
 
   const title = (key: string) => drills.find((d) => d.key === key)?.title ?? key
 </script>
@@ -43,7 +47,7 @@
 <h1>Today</h1>
 
 {#if error}
-  <p role="alert">Could not load today's session: {error}</p>
+  <LoadError message="Could not load today's session: {error}" onretry={load} />
 {:else if plan === null}
   <p>Loading…</p>
 {:else if active}
@@ -106,7 +110,7 @@
   section {
     padding: 0.75rem 1rem;
     border-radius: 1.1rem;
-    background: color-mix(in srgb, var(--tint) 26%, var(--surface));
+    background: color-mix(in srgb, var(--tint) var(--wash), var(--surface));
     border: var(--line);
     box-shadow: var(--drop);
   }

@@ -141,14 +141,26 @@ describe('AnswerInput', () => {
     expect(onsubmit).not.toHaveBeenCalled()
   })
 
-  it('focuses the first choice and marks the answer after grading', () => {
+  it('focuses the choices, not a choice, so a second Enter after Next answers nothing', async () => {
+    const onsubmit = vi.fn()
+    render(AnswerInput, { question: choiceQuestion, onsubmit })
+    const group = screen.getByRole('group', { name: 'Choices' })
+    expect(group).toHaveFocus()
+    await fireEvent.keyDown(group, { key: 'Enter' })
+    expect(onsubmit).not.toHaveBeenCalled()
+    // A held Enter on a choice does not press it again.
+    const held = new KeyboardEvent('keydown', { key: 'Enter', repeat: true, bubbles: true, cancelable: true })
+    screen.getAllByRole('button')[0].dispatchEvent(held)
+    expect(held.defaultPrevented).toBe(true)
+  })
+
+  it('marks the answer after grading', () => {
     render(AnswerInput, {
       question: choiceQuestion,
       onsubmit: vi.fn(),
       answered: { response: 'Player 1', expected: 'Player 2' },
     })
     const [first, second, third] = screen.getAllByRole('button')
-    expect(first).toHaveFocus()
     expect(first).toHaveClass('wrong')
     expect(first).toHaveTextContent('✗')
     expect(second).toHaveClass('right')

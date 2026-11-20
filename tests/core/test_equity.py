@@ -126,3 +126,22 @@ def test_conflicting_ranges():
         calculate_equity([first, second], samples=10, exact_limit=0)
     with pytest.raises(ValueError, match="no valid deal"):
         calculate_equity([first, second], parse_cards("2c3c4c5d7d"))
+
+
+def two(text):
+    a, b = parse_cards(text)
+    return (a, b)
+
+
+def test_a_range_cut_to_one_combo_by_known_hands_is_still_dealt():
+    aces = two("AsAh")
+    result = calculate_equity([aces, Range.parse("AA")])
+    assert result[0].equity == pytest.approx(0.5, abs=0.01)
+    deuces = two("2c2d")
+    kings = two("KsKh")
+    other = two("KdKc")
+    board = parse_cards("7h8h9s")
+    result = calculate_equity([deuces, [(kings, 1.0)], [(kings, 1.0), (other, 1.0)]], board)
+    assert sum(p.equity for p in result.players) == pytest.approx(1.0)
+    with pytest.raises(ValueError, match="same card"):
+        calculate_equity([aces, aces])

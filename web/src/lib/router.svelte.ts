@@ -6,7 +6,12 @@ export interface Route {
 }
 
 export function parseHash(hash: string): Route {
-  const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent)
+  let parts: string[]
+  try {
+    parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent)
+  } catch {
+    parts = [] // a malformed escape such as "#/%" goes home instead of crashing the app
+  }
   return { page: parts[0] ?? 'home', params: parts.slice(1) }
 }
 
@@ -20,6 +25,9 @@ class Router {
   constructor() {
     window.addEventListener('hashchange', () => {
       this.route = parseHash(window.location.hash)
+      // A new page starts at its top, and keyboard and screen-reader users start in its content.
+      window.scrollTo(0, 0)
+      document.querySelector('main')?.focus({ preventScroll: true })
     })
   }
 

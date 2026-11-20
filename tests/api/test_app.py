@@ -10,6 +10,8 @@ from holdem.db import save_hand
 from holdem.drills.base import AnswerKind, Question
 from holdem.drills.math_lab import PreflopEquityDrill
 
+LOCAL = "http://127.0.0.1:8000"
+
 
 @pytest.fixture(autouse=True)
 def fast_preflop(monkeypatch):
@@ -18,7 +20,7 @@ def fast_preflop(monkeypatch):
 
 @pytest.fixture
 def client(engine, tmp_path):
-    return TestClient(create_app(engine, web_dist=tmp_path / "missing"))
+    return TestClient(create_app(engine, web_dist=tmp_path / "missing"), base_url=LOCAL)
 
 
 def ask(client, key="pot-odds", seed=1):
@@ -118,7 +120,9 @@ def test_answer_errors(client):
 
 def test_answers_drive_reviews_and_today(engine, tmp_path):
     now = datetime(2026, 11, 16, 12, tzinfo=UTC)
-    client = TestClient(create_app(engine, web_dist=tmp_path / "missing", clock=lambda: now))
+    client = TestClient(
+        create_app(engine, web_dist=tmp_path / "missing", clock=lambda: now), base_url=LOCAL
+    )
     today = client.get("/api/today").json()
     assert today["new"] == ["hand-ranking", "showdown"]
     assert today["queue"][:2] == ["hand-ranking", "showdown"]
@@ -158,7 +162,7 @@ def test_serves_built_front_end(engine, tmp_path):
     (dist / "index.html").write_text("<html>app</html>")
     (dist / "assets" / "app.js").write_text("console.log(1)")
     (dist / "favicon.svg").write_text("<svg/>")
-    client = TestClient(create_app(engine, web_dist=dist))
+    client = TestClient(create_app(engine, web_dist=dist), base_url=LOCAL)
     assert client.get("/").text == "<html>app</html>"
     assert client.get("/math-lab").text == "<html>app</html>"  # SPA fallback
     assert client.get("/favicon.svg").text == "<svg/>"
@@ -206,7 +210,9 @@ def test_preflop_endpoints_and_leaks(client):
 
 def test_activity_endpoint(engine, tmp_path):
     now = datetime(2026, 11, 16, 12, tzinfo=UTC)
-    client = TestClient(create_app(engine, web_dist=tmp_path / "x", clock=lambda: now, zone=UTC))
+    client = TestClient(
+        create_app(engine, web_dist=tmp_path / "x", clock=lambda: now, zone=UTC), base_url=LOCAL
+    )
     question = ask(client)
     client.post("/api/answers", json={"question_id": question["id"], "response": "25%"})
     data = client.get("/api/activity").json()

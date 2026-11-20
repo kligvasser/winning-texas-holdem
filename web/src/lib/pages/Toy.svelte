@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, type PlayStyle, type ToyFrequency, type ToyGame, type ToyOutcome, type ToyState } from '../api'
   import Avatar from '../components/Avatar.svelte'
+  import LoadError from '../components/LoadError.svelte'
   import { percent } from '../format'
   import { href } from '../router.svelte'
 
@@ -12,14 +13,41 @@
   let game = $state<ToyState | null>(null)
   let reviewing = $state(false) // the last hand's result is on screen
   let error = $state<string | null>(null)
+  let loadError = $state<string | null>(null)
   let busy = $state(false)
+  let turn = 0 // bumped when an answer still in flight should be ignored
+  let resultBox = $state<HTMLElement>()
+  let actionBox = $state<HTMLElement>()
 
-  $effect(() => {
+  function load() {
+    loadError = null
     api.toyMenu().then(
       (m) => (menu = m),
-      (e: Error) => (error = e.message),
+      (e: Error) => (loadError = e.message),
     )
+  }
+
+  $effect(() => {
+    load()
+    return () => {
+      turn += 1
+    }
   })
+
+  $effect(() => {
+    // The action buttons and the result replace each other; keep keyboard focus beside them.
+    void reviewing
+    void game?.hands_played
+    if (game && document.activeElement === document.body) {
+      ;(resultBox ?? actionBox)?.focus({ preventScroll: true })
+    }
+  })
+
+  function leave() {
+    turn += 1
+    busy = false
+    game = null
+  }
 
   const who = $derived(game?.opponent.character ?? '')
   const last = $derived(reviewing ? (game?.last ?? null) : null)
@@ -32,12 +60,17 @@
     `${name} ${PAST[o.their_action]} with the ${o.their_card}. You ${o.chips > 0 ? 'won' : 'lost'} ${chips(o.chips)}.`
 
   async function run(call: () => Promise<ToyState>, review: boolean) {
+    if (busy) return
+    const mine = ++turn
     busy = true
     try {
-      game = await call()
+      const next = await call()
+      if (mine !== turn) return // you changed game while this was on its way
+      game = next
       reviewing = review
       error = null
     } catch (e) {
+      if (mine !== turn) return
       if ((e as { status?: number }).status === 404 && game) {
         // The server forgot this game (it restarted): back to the lobby.
         game = null
@@ -46,7 +79,7 @@
         error = (e as Error).message
       }
     } finally {
-      busy = false
+      if (mine === turn) busy = false
     }
   }
 
@@ -104,7 +137,9 @@
         </li>
       {/each}
     </ul>
-  {:else if !error}
+  {:else if loadError}
+    <LoadError message="Could not load the games: {loadError}" onretry={load} />
+  {:else}
     <p>Loading…</p>
   {/if}
 {:else}
@@ -116,7 +151,7 @@
     <span class="pill" class:up={total > 0} class:down={total < 0} aria-label="Session result"
       >{signed(total)} chips</span
     >
-    <button type="button" class="link" onclick={() => (game = null)}>Change game</button>
+    <button type="button" class="link" onclick={leave}>Change game</button>
   </div>
 
   <section class="felt" aria-label="Toy table">
@@ -150,7 +185,7 @@
   </section>
 
   {#if last}
-    <section class="result" class:won={last.chips > 0} aria-label="Hand result">
+    <section class="result" class:won={last.chips > 0} aria-label="Hand result" tabindex="-1" bind:this={resultBox}>
       <h3>{last.chips > 0 ? `You win ${chips(last.chips)}!` : `You lose ${chips(last.chips)}`}</h3>
       <p class="lesson">{last.lesson}</p>
       <ul class="values">
@@ -171,7 +206,7 @@
     {#each hand.before as o, i (i)}
       <p class="before">Hand {hand.number - hand.before.length + i}: you held the {o.card}. {story(o, who)}</p>
     {/each}
-    <div class="actions" role="group" aria-label="Your action">
+    <div class="actions" role="group" aria-label="Your action" tabindex="-1" bind:this={actionBox}>
       {#each hand.actions as action (action)}
         <button type="button" class="act {action}" disabled={busy} onclick={() => act(action)}
           >{LABELS[action]} <kbd>{action[0].toUpperCase()}</kbd></button
@@ -288,7 +323,7 @@
     padding: 0.9rem 0.8rem;
     border-radius: 1.1rem;
     border: 3px solid var(--ink);
-    background: color-mix(in srgb, var(--tint) 30%, var(--surface));
+    background: color-mix(in srgb, var(--tint) var(--wash), var(--surface));
     box-shadow: 0 5px 0 var(--ink);
     animation: rise 0.4s cubic-bezier(0.3, 1.5, 0.5, 1) backwards;
     animation-delay: calc(var(--i) * 70ms);
@@ -372,8 +407,12 @@
       inset 0 0 0 0.5rem var(--wood),
       inset 0 0 0 calc(0.5rem + 3px) var(--ink),
       0 6px 0 var(--ink);
-    background: radial-gradient(ellipse at 50% 40%, #3fd07a, #1c9a52 70%, #15803f);
+    background: radial-gradient(ellipse at 50% 40%, var(--felt-a), var(--felt-b) 70%, var(--felt-c));
     color: #fff;
+  }
+  .result:focus,
+  .actions:focus {
+    outline: none;
   }
   .side {
     display: flex;
@@ -451,11 +490,11 @@
     background: var(--surface);
   }
   .result {
-    background: color-mix(in srgb, var(--tomato) 16%, var(--surface));
+    background: color-mix(in srgb, var(--tomato) var(--wash), var(--surface));
     animation: rise 0.3s cubic-bezier(0.3, 1.5, 0.5, 1);
   }
   .result.won {
-    background: color-mix(in srgb, var(--mint) 20%, var(--surface));
+    background: color-mix(in srgb, var(--mint) var(--wash), var(--surface));
   }
   h3 {
     margin: 0 0 0.5rem;

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { GradeResult } from '../api'
   import { reviewMessage, signed } from '../format'
+  import { ignoreHeld } from '../keys'
   import ActionLegend from './ActionLegend.svelte'
   import Avatar from './Avatar.svelte'
   import CardRow from './CardRow.svelte'
@@ -30,7 +31,7 @@
   )
 </script>
 
-<section class="feedback" class:correct={result.correct} aria-live="polite">
+<section class="feedback" class:correct={result.correct}>
   <div class="head">
     <span class="title">
       <span class="face" aria-hidden="true">
@@ -38,7 +39,7 @@
       </span>
       <h3>{result.correct ? 'Correct' : 'Not quite'}</h3>
     </span>
-    <button bind:this={button} type="button" class="next" onclick={onnext}
+    <button bind:this={button} type="button" class="next" onclick={onnext} onkeydown={ignoreHeld}
       >{result.follow_up ? 'Next street ⏎' : 'Next ⏎'}</button
     >
   </div>
@@ -108,10 +109,10 @@
     border-radius: 1.2rem;
     border: 3px solid var(--ink);
     box-shadow: 0 5px 0 var(--ink);
-    background: color-mix(in srgb, var(--tomato) 16%, var(--surface));
+    background: color-mix(in srgb, var(--tomato) var(--wash), var(--surface));
   }
   .correct {
-    background: color-mix(in srgb, var(--mint) 20%, var(--surface));
+    background: color-mix(in srgb, var(--mint) var(--wash), var(--surface));
     animation: pop-in 0.3s cubic-bezier(0.3, 1.5, 0.5, 1);
   }
   .head {

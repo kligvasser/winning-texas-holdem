@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api, type Curriculum, type DrillMeta } from '../api'
+  import LoadError from '../components/LoadError.svelte'
   import { groupByTier, percent, TIER_NAMES } from '../format'
   import { href } from '../router.svelte'
 
@@ -9,7 +10,8 @@
   let drills = $state<DrillMeta[]>([])
   let error = $state<string | null>(null)
 
-  $effect(() => {
+  function load() {
+    error = null
     Promise.all([api.curriculum(), api.drills()]).then(
       ([c, d]: [Curriculum, DrillMeta[]]) => {
         curriculum = c
@@ -17,7 +19,9 @@
       },
       (e: Error) => (error = e.message),
     )
-  })
+  }
+
+  $effect(load)
 
   const byId = $derived(new Map(curriculum?.concepts.map((c) => [c.id, c])))
   const concept = $derived(selected ? byId.get(selected) : undefined)
@@ -25,7 +29,7 @@
 </script>
 
 {#if error}
-  <p role="alert">Could not load the curriculum: {error}</p>
+  <LoadError message="Could not load the curriculum: {error}" onretry={load} />
 {:else if curriculum === null}
   <p>Loading…</p>
 {:else if selected && !concept}
@@ -197,10 +201,10 @@
     font-weight: 900;
   }
   .tile.status-learning {
-    background: color-mix(in srgb, var(--sun) 24%, var(--surface));
+    background: color-mix(in srgb, var(--sun) var(--wash), var(--surface));
   }
   .tile.status-mastered {
-    background: color-mix(in srgb, var(--mint) 28%, var(--surface));
+    background: color-mix(in srgb, var(--mint) var(--wash), var(--surface));
   }
   .row {
     display: flex;

@@ -4,10 +4,11 @@
   import Avatar from '../components/Avatar.svelte'
   import Confetti from '../components/Confetti.svelte'
   import DecisionList from '../components/DecisionList.svelte'
+  import LoadError from '../components/LoadError.svelte'
   import PokerTable from '../components/PokerTable.svelte'
   import { describe, frameDelay, signedBb, toBb } from '../play'
   import { href } from '../router.svelte'
-  import { play as chime, setSound, soundFor, soundOn } from '../sound'
+  import { play as chime, setSound, soundFor, soundOn, unlock } from '../sound'
 
   /** Milliseconds per bot action; 0 shows the newest position at once. */
   let { pace = 700 }: { pace?: number } = $props()
@@ -15,6 +16,9 @@
   const BIG_WIN = 10 // chips: 5bb
 
   let cast = $state<PlayStyle[] | null>(null)
+  let castError = $state<string | null>(null)
+  let said = $state('') // read out by screen readers: what just happened at the table
+  let controls = $state<HTMLDivElement>()
   let game = $state<PlayState | null>(null)
   let coach = $state<Coach | null>(null)
   let showCoach = $state(false)
@@ -29,11 +33,17 @@
   let carry = $state(false)
   let sound = $state(soundOn())
 
-  $effect(() => {
+  /** The cast is decoration: without it you can still be dealt in. */
+  function loadCast() {
+    castError = null
     api.styles().then(
       (list) => (cast = list),
-      (e: Error) => (error = e.message),
+      (e: Error) => (castError = e.message),
     )
+  }
+
+  $effect(() => {
+    loadCast()
     return () => {
       turn += 1
       clearTimeout(timer)
@@ -46,6 +56,27 @@
   const yourTurn = $derived(settled && !!game?.legal)
   const over = $derived(settled && !!game?.hand.finished)
   const net = $derived(game?.hand.net?.[0] ?? 0)
+  // While the bots' moves are still being shown, the log stops at the move on the table.
+  const log = $derived(
+    game ? game.hand.log.slice(0, game.hand.log.length - (settled ? 0 : game.frames.length - 1 - step)) : [],
+  )
+  const outcome = $derived(
+    !game || !game.hand.finished
+      ? ''
+      : net > 0
+        ? `You win ${toBb(net)}bb!`
+        : net < 0
+          ? `You lose ${toBb(-net)}bb`
+          : `${game.hand.winners.map((w) => names[w]).join(' & ')} ${game.hand.winners.length > 1 ? 'split' : 'takes'} the pot`,
+  )
+
+  $effect(() => {
+    // The buttons under the table come and go; keep keyboard focus next to them.
+    void settled
+    void over
+    void yourTurn
+    if (game && document.activeElement === document.body) controls?.focus({ preventScroll: true })
+  })
 
   function show(index: number) {
     const frames = game!.frames
@@ -58,6 +89,7 @@
     const cleared = now.bets.every((b) => b === 0) && before.bets.some((b) => b > 0)
     sweep = cleared ? before.bets : null
     const last = index === frames.length - 1
+    said = last && outcome ? `${describe(now.last, names)}. ${outcome}` : describe(now.last, names)
     if (last && now.finished) chime(now.net![0] > 0 ? 'win' : now.net![0] < 0 ? 'lose' : 'chip')
     else chime(soundFor(now))
     if (index < frames.length - 1) {
@@ -72,6 +104,7 @@
 
   async function run(work: () => Promise<PlayState>) {
     if (busy) return // a second click or key press while a move is in flight
+    unlock() // still inside the click: browsers only let sound start from one
     const mine = ++turn
     busy = true
     error = null
@@ -118,6 +151,7 @@
   function toggleSound() {
     sound = !sound
     setSound(sound)
+    if (sound) unlock()
   }
 
   function leave() {
@@ -127,6 +161,7 @@
     game = null
     coach = null
     onTable = null
+    said = ''
   }
 
   function onkeydown(event: KeyboardEvent) {
@@ -145,6 +180,7 @@
 <svelte:window {onkeydown} />
 
 {#if error}<p role="alert" class="error">{error}</p>{/if}
+<p class="sr-only" aria-live="polite" data-testid="said">{said}</p>
 
 {#if !game}
   <section class="lobby">
@@ -153,9 +189,11 @@
       Six seats, 100bb each, and five rivals who each play their own way. Spot their habits, take
       their chips, then see every decision you made reviewed.
     </p>
-    {#if cast === null && !error}
+    {#if castError}
+      <LoadError message="Could not load the rivals: {castError}" onretry={loadCast} />
+    {:else if cast === null}
       <p>Loading…</p>
-    {:else if cast}
+    {:else}
       <ul class="cast">
         {#each cast as s, i (s.key)}
           <li style:--i={i}>
@@ -166,6 +204,8 @@
           </li>
         {/each}
       </ul>
+    {/if}
+    {#if cast || castError}
       <label class="option">
         <input type="checkbox" bind:checked={carry} /> Keep stacks between hands
         <small>Win big or play short; anyone under 10bb is topped up.</small>
@@ -191,12 +231,8 @@
     <PokerTable hand={table} seats={game.seats} {sweep} {tick} />
     {#if over}
       {#key game.hands_played}
-        <div class="banner" class:win={net > 0} class:loss={net < 0} aria-live="polite">
-          <h2>
-            {#if net > 0}You win {toBb(net)}bb!{:else if net < 0}You lose {toBb(-net)}bb{:else}{game.hand.winners
-                .map((w) => names[w])
-                .join(' & ')} {game.hand.winners.length > 1 ? 'split' : 'takes'} the pot{/if}
-          </h2>
+        <div class="banner" class:win={net > 0} class:loss={net < 0}>
+          <h2>{outcome}</h2>
         </div>
         {#if net > 0}<div class="winflash" aria-hidden="true"></div>{/if}
         {#if net >= BIG_WIN}<Confetti />{/if}
@@ -204,7 +240,7 @@
     {/if}
   </div>
 
-  <div class="controls" class:done={over}>
+  <div class="controls" class:done={over} tabindex="-1" bind:this={controls}>
     {#if !settled}
       <button type="button" class="skip" onclick={skip}>Skip ▸▸ <kbd>Space</kbd></button>
     {:else if yourTurn && game.legal}
@@ -218,7 +254,8 @@
       <label class="coach-toggle"><input type="checkbox" checked={showCoach} onchange={toggleCoach} /> Coach</label>
       {#if showCoach && coach}
         <p class="coach" aria-label="Coach">
-          {#if coach.need !== null}Price: call {coach.to_call_bb}bb into {coach.pot_bb}bb needs
+          {#if coach.chart}First in: the chart says <strong>{coach.chart.toLowerCase()}</strong>.
+          {:else if coach.need !== null}Price: call {coach.to_call_bb}bb into {coach.pot_bb}bb needs
             <strong>{Math.round(coach.need * 100)}%</strong>.{/if}
           Your equity against {coach.opponents === 1 ? "the bot's likely range" : `${coach.opponents} bots' likely ranges`}:
           <strong>{Math.round(coach.equity * 100)}%</strong>.
@@ -245,7 +282,7 @@
   <details class="log">
     <summary>Action log</summary>
     <ol>
-      {#each game.hand.log as a, i (i)}<li><span class="street">{a.street}</span> {describe(a, names)}</li>{/each}
+      {#each log as a, i (i)}<li><span class="street">{a.street}</span> {describe(a, names)}</li>{/each}
     </ol>
   </details>
 {/if}
@@ -428,6 +465,9 @@
   .controls {
     min-height: 7.5rem;
     margin-top: 0.9rem;
+  }
+  .controls:focus {
+    outline: none;
   }
   .controls.done {
     min-height: 0;

@@ -108,6 +108,7 @@ describe('MathLab', () => {
 
   it('reports unknown drills once the list has loaded', async () => {
     render(MathLab, { selected: 'nope' })
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
     expect(await screen.findByText('Unknown drill “nope”.')).toBeInTheDocument()
   })
 
@@ -149,6 +150,15 @@ describe('Stats', () => {
     mocked.stats.mockRejectedValue(new Error('offline'))
     render(Stats)
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load stats: offline')
+  })
+
+  it('loads again when asked to try again', async () => {
+    mocked.stats.mockRejectedValueOnce(new Error('offline')).mockResolvedValue(stats)
+    mocked.activity.mockResolvedValue(activity)
+    render(Stats)
+    await fireEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 })
 

@@ -13,7 +13,7 @@ test('play six-max hands against the bots and review them', async ({ page }) => 
     for (let step = 0; step < 20; step += 1) {
       // The bots act one at a time; skip ahead to our move or the end of the hand.
       await expect(result.or(move.first()).or(skip).first()).toBeVisible()
-      if (await skip.isVisible()) await skip.click().catch(() => {})
+      if (await skip.isVisible()) await skip.click({ timeout: 1000 }).catch(() => {})
       await expect(result.or(move.first()).first()).toBeVisible()
       if (await result.isVisible()) break
       const before = await log.count()

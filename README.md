@@ -31,6 +31,9 @@ uv run python -m holdem
 Then open http://127.0.0.1:8000. Your progress is saved in `data/holdem.sqlite`, relative to where
 you start the app; set `HOLDEM_DATA_DIR` to keep it somewhere fixed.
 
+The app has no login and listens only on your own machine. `--host 0.0.0.0` opens it to your
+network, so use that only on a network you trust.
+
 ## Test it
 
 ```sh

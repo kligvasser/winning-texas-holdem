@@ -3,6 +3,7 @@
   import type { Question } from '../api'
   import { parseAnswer } from '../answer'
   import { ALL_CELLS } from '../grid'
+  import { ignoreHeld } from '../keys'
   import RangeGrid from './RangeGrid.svelte'
 
   const EVERY_HAND = ALL_CELLS.map((c) => c.cls)
@@ -31,6 +32,7 @@
   let invalid = $state(false)
   let input = $state<HTMLInputElement>()
   let group = $state<HTMLDivElement>()
+  let range = $state<HTMLDivElement>()
 
   $effect(() => {
     // Reset and focus whenever a new question arrives.
@@ -38,8 +40,11 @@
     text = ''
     invalid = false
     painted = untrack(() => startRange ?? EVERY_HAND)
+    // Focus goes to the answer area, never onto a choice: a second Enter after "Next" would
+    // otherwise answer the new question. Digits answer; Tab reaches the buttons.
     input?.focus()
-    group?.querySelector('button')?.focus()
+    group?.focus()
+    range?.querySelector<HTMLElement>('[role="grid"]')?.focus()
   })
 
   function submitNumber(event: SubmitEvent) {
@@ -65,7 +70,7 @@
 <svelte:window {onkeydown} />
 
 {#if question.kind === 'range'}
-  <div class="range">
+  <div class="range" bind:this={range}>
     <RangeGrid
       {painted}
       onpaint={disabled ? undefined : (classes) => (painted = classes)}
@@ -103,7 +108,7 @@
     {/if}
   </p>
 {:else}
-  <div class="choices" role="group" aria-label="Choices" bind:this={group}>
+  <div class="choices" role="group" aria-label="Choices" tabindex="-1" bind:this={group}>
     {#each question.choices as choice, i (choice)}
       {@const right = answered?.expected === choice}
       {@const picked = answered?.response === choice}
@@ -114,6 +119,7 @@
         class:wrong={picked && !right}
         aria-describedby={picked ? 'picked-note' : undefined}
         onclick={() => onsubmit(choice)}
+        onkeydown={ignoreHeld}
       >
         <kbd>{i + 1}</kbd>{choice}{#if right}<span class="mark" aria-label="correct answer">✓</span
           >{:else if picked}<span class="mark" aria-label="your answer">✗</span>{/if}
@@ -156,6 +162,9 @@
     font-size: 1.1rem;
     color: var(--muted);
   }
+  .choices:focus {
+    outline: none;
+  }
   .choices {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
@@ -169,11 +178,11 @@
     padding: 0.7rem 1rem;
   }
   .choices button.right {
-    background: color-mix(in srgb, var(--mint) 45%, var(--surface));
+    background: color-mix(in srgb, var(--mint) var(--wash-strong), var(--surface));
     opacity: 1;
   }
   .choices button.wrong {
-    background: color-mix(in srgb, var(--tomato) 40%, var(--surface));
+    background: color-mix(in srgb, var(--tomato) var(--wash-strong), var(--surface));
     opacity: 1;
   }
   .mark {

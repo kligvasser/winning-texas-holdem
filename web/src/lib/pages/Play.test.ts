@@ -35,7 +35,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   mocked.styles.mockResolvedValue(seats.slice(1))
   mocked.play.mockResolvedValue(playState())
-  mocked.coach.mockResolvedValue({ to_call_bb: 2, pot_bb: 12, need: 0.14, equity: 0.62, opponents: 1 })
+  mocked.coach.mockResolvedValue({ chart: null, to_call_bb: 2, pot_bb: 12, need: 0.14, equity: 0.62, opponents: 1 })
 })
 
 const sit = async () => fireEvent.click(await screen.findByRole('button', { name: 'Deal me in!' }))
@@ -53,6 +53,8 @@ describe('Play', () => {
     await fireEvent.click(mute)
     expect(mute).toHaveAttribute('aria-pressed', 'false')
     expect(localStorage.getItem('holdem.sound')).toBe('off')
+    await fireEvent.click(mute)
+    expect(localStorage.getItem('holdem.sound')).toBe('on')
     localStorage.clear()
   })
 
@@ -93,7 +95,7 @@ describe('Play', () => {
     expect(coach).toHaveTextContent('needs 14%')
     expect(coach).toHaveTextContent("the bot's likely range: 62%")
     mocked.act.mockResolvedValueOnce(playState())
-    mocked.coach.mockResolvedValueOnce({ to_call_bb: 0, pot_bb: 12, need: null, equity: 0.4, opponents: 3 })
+    mocked.coach.mockResolvedValueOnce({ chart: 'Raise', to_call_bb: 0, pot_bb: 12, need: null, equity: 0.4, opponents: 3 })
     await fireEvent.click(screen.getByRole('button', { name: /Call/ }))
     expect(await screen.findByText('40%')).toBeInTheDocument()
     expect(screen.getByLabelText('Coach', { selector: 'p' })).toHaveTextContent("3 bots' likely ranges")
@@ -109,6 +111,7 @@ describe('Play', () => {
     render(Play, { pace: 0 })
     await sit()
     expect(await screen.findByRole('heading', { name: 'You lose 3bb' })).toBeInTheDocument()
+    expect(screen.getByTestId('said')).toHaveTextContent('You lose 3bb')
     expect(screen.getByLabelText('Session result')).toHaveTextContent('-3bb')
     expect(document.querySelector('.confetti')).toBeNull()
     mocked.nextHand.mockRejectedValueOnce(new Error('session not found'))
@@ -122,12 +125,18 @@ describe('Play', () => {
     expect(await screen.findByRole('heading', { name: 'Rocky & Finn split the pot' })).toBeInTheDocument()
     await fireEvent.click(screen.getByRole('button', { name: 'Leave table' }))
     expect(screen.getByRole('button', { name: 'Deal me in!' })).toBeInTheDocument()
+    expect(screen.getByTestId('said')).toHaveTextContent('')
   })
 
   it('shows load failures and a coach that fails quietly', async () => {
     mocked.styles.mockRejectedValueOnce(new Error('offline'))
     const { unmount } = render(Play, { pace: 0 })
-    expect(await screen.findByRole('alert')).toHaveTextContent('offline')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the rivals: offline')
+    // The cast is decoration: you can still be dealt in, or load it again.
+    expect(screen.getByRole('button', { name: 'Deal me in!' })).toBeEnabled()
+    await fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText(seats[1].character)).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
     unmount()
     mocked.coach.mockRejectedValue(new Error('no'))
     render(Play, { pace: 0 })
@@ -234,6 +243,34 @@ describe('Play', () => {
       expect(screen.getByText('Call 2bb')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /Skip/ })).toBeInTheDocument()
       expect(screen.queryByRole('group', { name: 'Your action' })).toBeNull()
+      // Screen readers hear each move, and the log does not run ahead of the table.
+      expect(screen.getByTestId('said')).toHaveTextContent('Rocky calls 2bb')
+      const logged = () => document.querySelectorAll('.log li').length
+      const whole = steps().hand.log.length
+      expect(logged()).toBe(whole - 2)
+      await vi.advanceTimersByTimeAsync(100)
+      expect(screen.getByTestId('said')).toHaveTextContent('Finn folds')
+      expect(logged()).toBe(whole - 1)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(logged()).toBe(whole)
+    })
+
+    it('keeps focus beside the buttons as they change', async () => {
+      render(Play, { pace: 100 })
+      await vi.advanceTimersByTimeAsync(0)
+      await fireEvent.click(screen.getByRole('button', { name: 'Deal me in!' }))
+      await vi.advanceTimersByTimeAsync(0)
+      const controls = document.querySelector('.controls')
+      expect(controls).toHaveFocus() // the Deal button is gone; focus did not fall to the page
+      await fireEvent.keyDown(controls!, { key: ' ' }) // Space still skips from there
+      expect(screen.getByRole('group', { name: 'Your action' })).toBeInTheDocument()
+    })
+
+    it('plays the bots one action at a time, then waits for you', async () => {
+      render(Play, { pace: 100 })
+      await vi.advanceTimersByTimeAsync(0)
+      await fireEvent.click(screen.getByRole('button', { name: 'Deal me in!' }))
+      await vi.advanceTimersByTimeAsync(0)
       await fireEvent.keyDown(window, { key: 'n' }) // not over yet
       await vi.advanceTimersByTimeAsync(100)
       expect(screen.getByText('Fold')).toBeInTheDocument()
@@ -414,9 +451,18 @@ describe('Review', () => {
     mocked.hands.mockRejectedValue(new Error('offline'))
     const { unmount } = render(Review)
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load hands: offline')
+    expect(screen.queryByRole('link', { name: /All hands/ })).toBeNull()
     unmount()
-    mocked.hand.mockRejectedValue(new Error('hand not found'))
+    mocked.hand.mockRejectedValueOnce(new Error('hand not found'))
     render(Review, { selected: '99' })
     expect(await screen.findByRole('alert')).toHaveTextContent('hand not found')
+    // A missing hand still leaves a way back, and a way to try again.
+    expect(screen.getByRole('link', { name: /All hands/ })).toBeInTheDocument()
+    mocked.hand.mockResolvedValueOnce({
+      ...summary(3),
+      record: { style: '6-max', seats, hand: finished.hand, net_bb: 10, decisions },
+    })
+    await fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('heading', { name: 'Hand #3' })).toBeInTheDocument()
   })
 })

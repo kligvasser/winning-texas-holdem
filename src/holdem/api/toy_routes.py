@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import threading
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from holdem.engine.toy import GAMES, OPPONENTS, ToySession, new_toy_session
 
@@ -13,17 +14,18 @@ MAX_SESSIONS = 20
 
 
 class ToyRequest(BaseModel):
-    game: str
-    opponent: str
+    game: str = Field(max_length=40)
+    opponent: str = Field(max_length=40)
     seed: int | None = None
 
 
 class ToyActRequest(BaseModel):
-    action: str
+    action: str = Field(max_length=20)
 
 
 def register_toy_routes(app: FastAPI) -> None:
     sessions: dict[str, ToySession] = {}
+    lock = threading.Lock()  # requests run on threads; a game changes one request at a time
     app.state.toy_sessions = sessions
 
     @app.get("/api/toy")
@@ -39,9 +41,10 @@ def register_toy_routes(app: FastAPI) -> None:
             toy = new_toy_session(body.game, body.opponent, body.seed)
         except KeyError as exc:
             raise HTTPException(404, f"unknown game or opponent {exc}") from exc
-        sessions[toy.id] = toy
-        while len(sessions) > MAX_SESSIONS:
-            sessions.pop(next(iter(sessions)))
+        with lock:
+            sessions[toy.id] = toy
+            while len(sessions) > MAX_SESSIONS:
+                sessions.pop(next(iter(sessions)))
         return toy.state()
 
     @app.post("/api/toy/{session_id}/act")
@@ -49,8 +52,9 @@ def register_toy_routes(app: FastAPI) -> None:
         toy = sessions.get(session_id)
         if toy is None:
             raise HTTPException(404, "session not found (the app may have restarted)")
-        try:
-            toy.act(body.action)
-        except ValueError as exc:
-            raise HTTPException(400, str(exc)) from exc
-        return toy.state()
+        with lock:
+            try:
+                toy.act(body.action)
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from exc
+            return toy.state()

@@ -3,10 +3,12 @@ from fastapi.testclient import TestClient
 
 from holdem.api.app import create_app
 
+LOCAL = "http://127.0.0.1:8000"
+
 
 @pytest.fixture
 def client(engine, tmp_path):
-    return TestClient(create_app(engine, web_dist=tmp_path / "missing"))
+    return TestClient(create_app(engine, web_dist=tmp_path / "missing"), base_url=LOCAL)
 
 
 def test_toy_game_flow(client):

@@ -16,6 +16,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cache
 
+from holdem.core.cards import rank_of
+from holdem.core.evaluator import Category, category_of_rank, evaluate
 from holdem.core.ranges import ALL_CLASSES, Range, class_combo_count, class_of_combo
 from holdem.drills.scenarios import hand_strength
 from holdem.engine.headsup import BIG_BLIND, Action, HeadsUpHand
@@ -169,8 +171,24 @@ STYLES: dict[str, Style] = {
 }
 
 
+def _plays_the_board(hole: tuple[int, int], board: list[int]) -> bool:
+    """The board alone is a straight or better and the hole cards add nothing to it."""
+    if len(board) < 5:
+        return False
+    alone = evaluate(board)
+    return category_of_rank(alone) >= Category.STRAIGHT and evaluate([*hole, *board]) >= alone
+
+
+def _trips(hole: tuple[int, int], board: list[int]) -> bool:
+    """Three of a kind made with one hole card and a pair on the board."""
+    ranks = [rank_of(card) for card in board]
+    return any(ranks.count(rank_of(card)) >= 2 for card in hole)
+
+
 def hand_class(hole: tuple[int, int], board: list[int]) -> str:
-    if PREDICATES["two_pair_plus"](hole, board):
+    if _plays_the_board(hole, board):
+        return "medium"  # everybody has this hand; it is a bluff-catcher at best
+    if PREDICATES["two_pair_plus"](hole, board) or _trips(hole, board):
         return "monster"
     if PREDICATES["top_pair"](hole, board) or PREDICATES["overpair"](hole, board):
         return "strong"

@@ -2,6 +2,7 @@
   import { api, type HandDetail, type HandSummary, type PlayStats } from '../api'
   import DecisionList from '../components/DecisionList.svelte'
   import PokerTable from '../components/PokerTable.svelte'
+  import LoadError from '../components/LoadError.svelte'
   import { percent } from '../format'
   import { describe } from '../play'
   import { href } from '../router.svelte'
@@ -15,7 +16,8 @@
   let mistakesOnly = $state(false)
   let at = $state(0) // which step of the replay is on the table
 
-  $effect(() => {
+  function load() {
+    error = null
     if (selected) {
       api.hand(Number(selected)).then(
         (d) => (detail = d),
@@ -30,7 +32,9 @@
         (e: Error) => (error = e.message),
       )
     }
-  })
+  }
+
+  $effect(load)
 
   const frames = $derived(detail?.record.frames ?? [])
   // The last step is the stored hand itself, with every card face up.
@@ -58,10 +62,10 @@
 
 <svelte:window {onkeydown} />
 
+{#if selected}<nav class="crumbs"><a href={href('review')}>← All hands</a></nav>{/if}
 {#if error}
-  <p role="alert">Could not load hands: {error}</p>
+  <LoadError message="Could not load hands: {error}" onretry={load} />
 {:else if selected}
-  <nav class="crumbs"><a href={href('review')}>← All hands</a></nav>
   {#if detail}
     {@const names = detail.record.seats.map((s) => s.character)}
     <h1>Hand #{detail.id}</h1>
@@ -199,7 +203,7 @@
     align-items: center;
     padding: 0.9rem;
     border-radius: 1.1rem;
-    background: color-mix(in srgb, var(--tint, transparent) 30%, var(--surface));
+    background: color-mix(in srgb, var(--tint, transparent) var(--wash), var(--surface));
     border: var(--line);
     box-shadow: var(--drop);
     text-align: center;
@@ -300,7 +304,7 @@
     border-radius: 1.1rem;
     border: var(--line);
     box-shadow: var(--drop);
-    background: color-mix(in srgb, var(--tomato) 22%, var(--surface));
+    background: color-mix(in srgb, var(--tomato) var(--wash), var(--surface));
   }
   .leaks span {
     font-size: 0.92rem;

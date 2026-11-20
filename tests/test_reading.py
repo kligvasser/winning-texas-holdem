@@ -132,3 +132,11 @@ def test_play_and_checkpoints_cover_both_seats():
         points = _checkpoints(STYLES["station"], villain, hand, 5)
         assert all(p.weights for p in points)
         assert all(0 <= v <= 1 for p in points for v in p.density().values())
+
+
+def test_missed_hands_of_equal_weight_are_listed_strongest_first():
+    weights = {"72o": 1.0, "AA": 1.0, "KQs": 1.0}
+    reveal = {"class_weights": weights, "class_combos": {"72o": 12, "AA": 6, "KQs": 4}}
+    reveal |= {"best": 1.0, "villain": "Nit"}
+    _, _, lines = grade_range([], reveal)
+    assert any("AA, KQs, 72o" in line for line in lines)

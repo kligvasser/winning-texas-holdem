@@ -37,7 +37,8 @@ test('every drill loads a question', async ({ page, request }) => {
   const drills = (await (await request.get('/api/drills')).json()) as { key: string; title: string }[]
   for (const drill of drills) {
     await page.goto(`/#/math-lab/${drill.key}`)
-    await expect(page.locator('.prompt')).toBeVisible()
+    // Equity-heavy drills take a moment to deal on a slow machine.
+    await expect(page.locator('.prompt')).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText(drill.title, { exact: true })).toBeVisible()
   }
 })

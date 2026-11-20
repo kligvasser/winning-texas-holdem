@@ -243,4 +243,53 @@ describe('DrillRunner', () => {
     await fireEvent.click(await screen.findByRole('button', { name: 'Skip' }))
     expect(onprogress).toHaveBeenLastCalledWith(expect.objectContaining({ position: 3, skipped: 1 }))
   })
+
+  it('drops a failed-answer banner when you skip, so Retry cannot grade the old question', async () => {
+    question.mockResolvedValueOnce(choiceQuestion).mockResolvedValue(q('fresh', numberQuestion))
+    answer.mockRejectedValueOnce(new Error('Failed to fetch'))
+    render(DrillRunner, { drills, random: () => 0 })
+    await fireEvent.click(await screen.findByRole('button', { name: /Player 2/ }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not send your answer')
+    await fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+    expect(await screen.findByLabelText('Your answer')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(answer).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks for one question when Next is pressed twice while it loads', async () => {
+    let deal: (value: typeof choiceQuestion) => void = () => {}
+    question
+      .mockResolvedValueOnce(choiceQuestion)
+      .mockImplementationOnce(() => new Promise((resolve) => (deal = resolve)))
+      .mockResolvedValue(q('third'))
+    answer.mockResolvedValue(correctResult)
+    render(DrillRunner, { drills, random: () => 0 })
+    await fireEvent.click(await screen.findByRole('button', { name: /Player 1/ }))
+    const next = await screen.findByRole('button', { name: /Next/ })
+    await fireEvent.click(next)
+    await fireEvent.click(next)
+    expect(question).toHaveBeenCalledTimes(2)
+    deal(q('second', numberQuestion))
+    expect(await screen.findByLabelText('Your answer')).toBeInTheDocument()
+    expect(question).toHaveBeenCalledTimes(2)
+  })
+
+  it('announces each grade to screen readers and ignores a held Enter on Next', async () => {
+    question.mockResolvedValue(choiceQuestion)
+    answer.mockResolvedValueOnce(correctResult).mockResolvedValueOnce(wrongResult)
+    render(DrillRunner, { drills, random: () => 0 })
+    const live = document.querySelector('[aria-live="polite"]')!
+    expect(live).toHaveTextContent('')
+    await fireEvent.click(await screen.findByRole('button', { name: /Player 1/ }))
+    const next = await screen.findByRole('button', { name: /Next/ })
+    expect(live).toHaveTextContent('Right.')
+    const held = new KeyboardEvent('keydown', { key: 'Enter', repeat: true, bubbles: true, cancelable: true })
+    next.dispatchEvent(held)
+    expect(held.defaultPrevented).toBe(true)
+    await fireEvent.click(next)
+    await fireEvent.click(await screen.findByRole('button', { name: /Player 1/ }))
+    await screen.findByText('Not quite')
+    expect(live).toHaveTextContent(`Wrong. The answer is ${wrongResult.expected}.`)
+  })
 })

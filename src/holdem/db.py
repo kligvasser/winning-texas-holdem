@@ -70,7 +70,7 @@ class PlayedHand(Base):
 
 def database_url() -> str:
     data_dir = Path(os.environ.get("HOLDEM_DATA_DIR", DEFAULT_DATA_DIR))
-    data_dir.mkdir(parents=True, exist_ok=True)
+    data_dir.mkdir(mode=0o700, parents=True, exist_ok=True)  # private to this user
     return f"sqlite:///{data_dir / 'holdem.sqlite'}"
 
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, type DrillMeta } from '../api'
   import DrillRunner from '../components/DrillRunner.svelte'
+  import LoadError from '../components/LoadError.svelte'
   import { groupByTier, TIER_NAMES } from '../format'
   import { href } from '../router.svelte'
 
@@ -9,12 +10,15 @@
   let drills = $state<DrillMeta[]>([])
   let error = $state<string | null>(null)
 
-  $effect(() => {
+  function load() {
+    error = null
     api.drills().then(
       (list) => (drills = list),
       (e: Error) => (error = e.message),
     )
-  })
+  }
+
+  $effect(load)
 
   const active = $derived(
     selected === 'mixed' ? drills : drills.filter((d) => d.key === selected),
@@ -22,13 +26,15 @@
 </script>
 
 {#if error}
-  <p role="alert">Could not load drills: {error}</p>
+  <LoadError message="Could not load drills: {error}" onretry={load} />
 {:else if selected}
   <nav class="crumbs"><a href={href('math-lab')}>← All drills</a></nav>
   {#if active.length}
     <DrillRunner drills={active} />
   {:else if drills.length}
     <p>Unknown drill “{selected}”.</p>
+  {:else}
+    <p>Loading…</p>
   {/if}
 {:else}
   <h1>Math Lab</h1>

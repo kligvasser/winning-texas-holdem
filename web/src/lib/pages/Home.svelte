@@ -108,7 +108,7 @@
       inset 0 0 0 0.5rem var(--wood),
       inset 0 0 0 calc(0.5rem + 3px) var(--ink),
       0 6px 0 var(--ink);
-    background: radial-gradient(ellipse at 30% 40%, #3fd07a, #1c9a52 70%, #15803f);
+    background: radial-gradient(ellipse at 30% 40%, var(--felt-a), var(--felt-b) 70%, var(--felt-c));
     color: #fff;
     margin-bottom: 1rem;
   }
@@ -170,7 +170,7 @@
     gap: 0.35rem;
     padding: 1rem;
     border-radius: 1.1rem;
-    background: color-mix(in srgb, var(--tint, transparent) 30%, var(--surface));
+    background: color-mix(in srgb, var(--tint, transparent) var(--wash), var(--surface));
     border: var(--line);
     box-shadow: var(--drop);
     text-align: center;
@@ -202,7 +202,7 @@
     gap: 0.3rem;
     padding: 1rem 1.1rem;
     border-radius: 1.1rem;
-    background: color-mix(in srgb, var(--tint) 26%, var(--surface));
+    background: color-mix(in srgb, var(--tint) var(--wash), var(--surface));
     border: var(--line);
     box-shadow: var(--drop);
     color: inherit;

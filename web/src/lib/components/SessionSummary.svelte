@@ -120,7 +120,7 @@
     border-radius: 1rem;
     border: var(--line);
     box-shadow: var(--drop-sm);
-    background: color-mix(in srgb, var(--tint) 30%, var(--surface));
+    background: color-mix(in srgb, var(--tint) var(--wash), var(--surface));
   }
   .tile:nth-child(1) { --tint: var(--mint); }
   .tile:nth-child(2) { --tint: var(--skyblue); }

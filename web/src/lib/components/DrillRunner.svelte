@@ -40,6 +40,7 @@
   let bestStreak = $state(0)
   let startedAt = 0
   let prefetched: { key: string; promise: Promise<Question> } | null = null
+  let fetching = false // a question is on its way: a second "Next" must not ask for another
   let lastRange = $state<string[] | undefined>(undefined) // carried street to street (hand reading)
 
   const current = $derived(drills.find((d) => d.key === question?.drill))
@@ -59,6 +60,7 @@
   }
 
   async function next() {
+    failed = null // a banner about the previous question must not outlive it
     // A scenario's next street was issued with the grade: show it straight away.
     const step = result?.follow_up
     if (!step) lastRange = undefined
@@ -68,6 +70,7 @@
       startedAt = performance.now()
       return
     }
+    if (fetching) return
     const ready = prefetched
     prefetched = null
     const key = ready?.key ?? keyAt(position)
@@ -76,6 +79,7 @@
       return
     }
     busy = true
+    fetching = true
     error = null
     try {
       const q = await (ready?.promise ?? api.question(key))
@@ -86,6 +90,7 @@
       error = (e as Error).message
     } finally {
       busy = false
+      fetching = false
     }
   }
 
@@ -106,11 +111,12 @@
       if (!graded.follow_up) prefetch()
     } catch (e) {
       // Keep the question on screen. A 404 means the server forgot it (it restarted).
-      failed =
-        e instanceof ApiError && e.status === 404
-          ? { message: 'This question expired (the app restarted). Here is a fresh one.', retry: null }
-          : { message: `Could not send your answer: ${(e as Error).message}`, retry: () => submit(q, value) }
-      if (!failed.retry) void next()
+      if (e instanceof ApiError && e.status === 404) {
+        void next()
+        failed = { message: 'This question expired (the app restarted). Here is a fresh one.', retry: null }
+      } else {
+        failed = { message: `Could not send your answer: ${(e as Error).message}`, retry: () => submit(q, value) }
+      }
     } finally {
       busy = false
     }
@@ -139,8 +145,8 @@
     skipped = from.skipped
     streak = 0
     bestStreak = 0
-    failed = null
     finished = false
+    fetching = false
     question = null
     result = null
     prefetched = null
@@ -157,6 +163,9 @@
 
 <svelte:window {onkeydown} />
 
+<p class="sr-only" aria-live="polite">
+  {result ? (result.correct ? 'Right.' : `Wrong. The answer is ${result.expected}.`) : ''}
+</p>
 <div class="runner">
   <header>
     <span class="drill-title">{finished ? '' : current?.title}</span>
@@ -289,7 +298,7 @@
     border-radius: 0.9rem;
     border: var(--line);
     box-shadow: var(--drop-sm);
-    background: color-mix(in srgb, var(--tomato) 30%, var(--surface));
+    background: color-mix(in srgb, var(--tomato) var(--wash), var(--surface));
   }
   .secondary {
     display: flex;
@@ -307,7 +316,7 @@
   .error {
     padding: 1rem 1.25rem;
     border-radius: 1.1rem;
-    background: color-mix(in srgb, var(--tomato) 22%, var(--surface));
+    background: color-mix(in srgb, var(--tomato) var(--wash), var(--surface));
     border: var(--line);
     box-shadow: var(--drop);
   }

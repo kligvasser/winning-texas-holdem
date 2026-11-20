@@ -6,7 +6,7 @@ from holdem.core.cards import parse_card, parse_cards
 from holdem.core.equity import calculate_equity
 from holdem.core.evaluator import Category
 from holdem.drills import math_lab
-from holdem.drills.base import AnswerKind, Question, grade
+from holdem.drills.base import AnswerKind, Question, grade, parse_number
 from holdem.drills.math_lab import (
     ALL_DRILLS,
     DRILLS,
@@ -131,7 +131,13 @@ def test_grade_accepts_friendly_numbers(response, value):
     assert grade(question, response).correct
 
 
-@pytest.mark.parametrize("response", ["nan", "inf", "-inf", "", "1/3"])
+def test_a_percentage_with_a_decimal_comma_is_not_read_as_thousands():
+    assert parse_number("33,333", percent=True) == pytest.approx(33.333)
+    assert parse_number("33,333") == 33333.0
+    assert parse_number("1,326") == 1326.0
+
+
+@pytest.mark.parametrize("response", ["nan", "inf", "-inf", "", "1/3", "1e308", "-2e9"])
 def test_grade_rejects_non_finite_or_unparseable(response):
     question = Question("d", "c", "p", AnswerKind.NUMBER, 1.0)
     with pytest.raises(ValueError):

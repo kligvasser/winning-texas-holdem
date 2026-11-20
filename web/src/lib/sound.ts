@@ -51,13 +51,23 @@ export function setSound(on: boolean, storage: Storage = localStorage): void {
   }
 }
 
+/**
+ * Wake the audio up. Browsers only allow this from inside a click or key press, so the
+ * handlers call it directly; sounds played later from timers then work (Safari needs this).
+ */
+export function unlock(storage: Storage = localStorage): AudioContext | undefined {
+  const Audio = (globalThis as { AudioContext?: typeof AudioContext }).AudioContext
+  if (!Audio || !soundOn(storage)) return undefined
+  context ??= new Audio()
+  if (context.state === 'suspended') void context.resume()
+  return context
+}
+
 /** Play a sound if sound is on and this browser can make one. */
 export function play(name: Sound, storage: Storage = localStorage): boolean {
-  const Audio = (globalThis as { AudioContext?: typeof AudioContext }).AudioContext
-  if (!Audio || !soundOn(storage)) return false
-  context ??= new Audio()
-  // Browsers start audio suspended until the page has been clicked.
-  if (context.state === 'suspended') void context.resume()
+  const context = unlock(storage)
+  // Still asleep: its clock is stopped, so notes scheduled now would all burst out together later.
+  if (context?.state !== 'running') return false
   const now = context.currentTime
   for (const [frequency, length, shape, delay] of SOUNDS[name] as Note[]) {
     const oscillator = context.createOscillator()

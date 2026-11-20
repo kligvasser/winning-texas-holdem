@@ -51,6 +51,12 @@ def test_percentile_ranks_hands():
         ("QsQd", "Jh7d2c", "strong"),  # an overpair
         ("8s6s", "Kh7d5c", "draw"),
         ("AsQd", "Kh7d2c", "air"),
+        ("Ks2d", "Ah2c2s", "monster"),  # trips with one hole card
+        ("As7d", "7h7c2s", "monster"),
+        ("Ks5d", "Kh2c2s", "strong"),  # top pair on a paired board, not trips
+        ("2c3d", "5h6d7s8c9h", "medium"),  # the straight is on the board
+        ("Tc3d", "5h6d7s8c9h", "monster"),  # a higher straight than the board's
+        ("2c3d", "KhKd7s7c4h", "air"),  # two pair on the board is nobody's hand
     ],
 )
 def test_hand_classes(hole, board, expected):
@@ -331,7 +337,9 @@ def test_review_grades_bets_and_raises_after_the_flop(monkeypatch):
     values = iter([Push(-20.0, 4.0, "calling", 0.2, 0.3), Push(30.0, 22.0, "checking", 0.4, 0.7)])
     monkeypatch.setattr("holdem.engine.play.push_value", lambda *a: next(values))
     opened, raised, bet = review(styles, hand)
-    assert opened.verdict == "info"
+    assert opened.verdict in ("good", "leak")  # first in: graded against the button chart
+    assert "First in from BTN, the chart" in opened.note
+    assert opened.loss_bb == 0
     assert raised.verdict == "mistake"
     assert raised.loss_bb == 12
     assert "Raising 30bb" not in raised.note and "Raising 15bb into" in raised.note
@@ -409,3 +417,55 @@ def test_decide_samples_from_options_with_a_safe_fallback():
     bot.rng = Edge()  # type: ignore[assignment]
     kind, _ = bot.decide(hand)
     assert kind == [k for k, _, p in options if p > 0][-1]
+
+
+def first_in(hole, kind, to=None, seats=6):
+    """Hero under the gun (or on the button three-handed), first to act, holding ``hole``."""
+    hand = TableHand([200] * seats, 3 if seats == 6 else 0, random.Random(1))
+    assert hand.current == HERO
+    hand.hole[HERO] = combo(hole)
+    hand.act(kind, to)
+    [decision] = [d for d in review(list(STYLES.values()), hand) if d.street == "preflop"]
+    return hand.positions[HERO], decision
+
+
+def test_first_in_decisions_follow_the_opening_chart():
+    position, fold = first_in("Ah5d", "fold")
+    assert position == "UTG"
+    assert (fold.verdict, fold.loss_bb) == ("good", 0)
+    assert fold.note == "First in from UTG, the chart folds A5o."
+    _, opened = first_in("AhKd", "raise", 6)
+    assert opened.verdict == "good"
+    assert opened.note == "First in from UTG, the chart raises AKo."
+    _, limp = first_in("AhKd", "call")
+    assert limp.verdict == "leak"
+    assert "raise or fold" in limp.note
+    _, passed = first_in("AhAd", "fold")
+    assert passed.verdict == "leak"
+    assert passed.note.endswith("You chose to fold.")
+    _, loose = first_in("7h2d", "raise", 6)
+    assert loose.verdict == "leak"
+    _, edge = first_in("AhTd", "fold")  # ATo is the weakest offsuit ace the chart opens
+    assert edge.verdict == "good"
+    assert "edge of the chart" in edge.note
+
+
+def test_the_chart_stops_applying_once_somebody_enters():
+    hand = TableHand([200] * 6, 2, random.Random(1))  # hero is in the hijack
+    assert hand.positions[HERO] == "HJ"
+    hand.act("raise", 6)  # under the gun opens
+    hand.act("fold")
+    [decision] = review(list(STYLES.values()), hand)
+    assert "First in" not in decision.note
+    assert decision.need is not None
+
+
+def test_coach_points_at_the_chart_when_first_in():
+    play = PlaySession(seed=1)
+    for seed in range(200):
+        play = PlaySession(seed=seed)
+        if not play.hand.finished and play.hand.street_name == "preflop":
+            entered = any(a.kind in ("call", "raise") for a in play.hand.log)
+            expected = entered or play.hand.positions[HERO] == "BB"
+            assert (play.coach()["chart"] is None) == expected
+    assert play.coach()["chart"] in (None, "Raise", "Fold")

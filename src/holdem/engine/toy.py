@@ -12,6 +12,7 @@ response, and the optimal (Nash) strategy, which is solved numerically here rath
 from __future__ import annotations
 
 import random
+import secrets
 import uuid
 from dataclasses import dataclass, field
 from functools import cache
@@ -419,5 +420,5 @@ class ToySession:
 def new_toy_session(game: str, opponent: str, seed: int | None = None) -> ToySession:
     """Start a session; raises ``KeyError`` for an unknown game or opponent."""
     return ToySession(
-        GAMES[game], OPPONENTS[opponent], random.randrange(1 << 30) if seed is None else seed
+        GAMES[game], OPPONENTS[opponent], secrets.randbits(63) if seed is None else seed
     )

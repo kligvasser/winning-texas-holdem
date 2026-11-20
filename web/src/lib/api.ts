@@ -221,6 +221,8 @@ export interface PlayState {
 }
 
 export interface Coach {
+  /** What the opening chart does when you are first in ("Raise" or "Fold"), otherwise null. */
+  chart: string | null
   to_call_bb: number
   pot_bb: number
   need: number | null
@@ -360,22 +362,34 @@ export class ApiError extends Error {
   }
 }
 
+/** One entry of a validation error: "to: Input should be less than 100". */
+function problem(item: unknown): string {
+  const { loc, msg } = item as { loc?: unknown[]; msg?: string }
+  const field = Array.isArray(loc) ? loc.filter((part) => part !== 'body').join('.') : ''
+  return [field, msg ?? 'invalid'].filter(Boolean).join(': ')
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   })
   if (!response.ok) {
-    let detail = response.statusText
+    let detail = response.statusText || `HTTP ${response.status}`
     try {
       const body = (await response.json()) as { detail?: unknown }
       if (typeof body.detail === 'string') detail = body.detail
+      else if (Array.isArray(body.detail)) detail = body.detail.map(problem).join('; ')
     } catch {
       // Body was not JSON; keep the status text.
     }
     throw new ApiError(response.status, detail)
   }
-  return (await response.json()) as T
+  try {
+    return (await response.json()) as T
+  } catch {
+    throw new ApiError(response.status, 'Unexpected response from the server')
+  }
 }
 
 export const api = {
@@ -405,17 +419,17 @@ export const api = {
   play: (carry = false) =>
     request<PlayState>('/api/play', { method: 'POST', body: JSON.stringify({ carry }) }),
   act: (id: string, kind: string, to?: number) =>
-    request<PlayState>(`/api/play/${id}/act`, {
+    request<PlayState>(`/api/play/${encodeURIComponent(id)}/act`, {
       method: 'POST',
       body: JSON.stringify(to === undefined ? { kind } : { kind, to }),
     }),
-  nextHand: (id: string) => request<PlayState>(`/api/play/${id}/next`, { method: 'POST' }),
-  coach: (id: string) => request<Coach>(`/api/play/${id}/coach`),
+  nextHand: (id: string) => request<PlayState>(`/api/play/${encodeURIComponent(id)}/next`, { method: 'POST' }),
+  coach: (id: string) => request<Coach>(`/api/play/${encodeURIComponent(id)}/coach`),
   hands: () => request<{ hands: HandSummary[]; stats: PlayStats }>('/api/hands'),
   hand: (id: number) => request<HandDetail>(`/api/hands/${id}`),
   toyMenu: () => request<{ games: ToyGame[]; opponents: PlayStyle[] }>('/api/toy'),
   toyStart: (game: string, opponent: string) =>
     request<ToyState>('/api/toy', { method: 'POST', body: JSON.stringify({ game, opponent }) }),
   toyAct: (id: string, action: string) =>
-    request<ToyState>(`/api/toy/${id}/act`, { method: 'POST', body: JSON.stringify({ action }) }),
+    request<ToyState>(`/api/toy/${encodeURIComponent(id)}/act`, { method: 'POST', body: JSON.stringify({ action }) }),
 }

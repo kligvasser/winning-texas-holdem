@@ -59,6 +59,29 @@ describe('sound', () => {
     expect(play('fold')).toBe(true)
   })
 
+  it('wakes the audio from a click, and schedules nothing while it is still asleep', async () => {
+    vi.resetModules()
+    const fresh = await import('./sound')
+    const started: number[] = []
+    const resumed = vi.fn()
+    class Asleep {
+      currentTime = 0
+      state = 'suspended'
+      resume = () => {
+        resumed()
+        return Promise.resolve()
+      }
+      createOscillator = () => ({ start: () => started.push(0) })
+    }
+    vi.stubGlobal('AudioContext', Asleep)
+    expect(fresh.unlock()).toBeInstanceOf(Asleep)
+    expect(resumed).toHaveBeenCalledTimes(1)
+    expect(fresh.play('win')).toBe(false)
+    expect(started).toEqual([])
+    fresh.setSound(false)
+    expect(fresh.unlock()).toBeUndefined()
+  })
+
   it('copes with storage that is unavailable', () => {
     const broken = {
       getItem: () => {

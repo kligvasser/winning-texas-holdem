@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/svelte'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { api } from '../api'
+import { api, type PaintResult } from '../api'
 import { leaks, spots } from '../../test/fixtures'
 import Preflop from './Preflop.svelte'
 
@@ -112,6 +112,53 @@ describe('Paint the range', () => {
     render(Preflop, { params: ['utg-open', 'paint', 'Raise'] })
     await fireEvent.pointerDown(await screen.findByRole('gridcell', { name: 'AA' }))
     await fireEvent.click(screen.getByRole('button', { name: 'Check' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Preflop error: bad action')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not check your range: bad action')
+    // The painting survives, and painting again clears the message.
+    expect(screen.getByText('1 hands painted')).toBeInTheDocument()
+    expect(screen.getByRole('gridcell', { name: 'AA' })).toHaveAttribute('aria-selected', 'true')
+    await fireEvent.pointerDown(screen.getByRole('gridcell', { name: 'KK' }))
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('checks once per click and drops a result for an older painting', async () => {
+    let finish: (r: PaintResult) => void = () => {}
+    mocked.paint.mockImplementation(() => new Promise<PaintResult>((resolve) => (finish = resolve)))
+    render(Preflop, { params: ['utg-open', 'paint', 'Raise'] })
+    await fireEvent.pointerDown(await screen.findByRole('gridcell', { name: 'AA' }))
+    await fireEvent.pointerUp(window)
+    const check = screen.getByRole('button', { name: 'Check' })
+    await fireEvent.click(check)
+    expect(check).toBeDisabled()
+    await fireEvent.click(check)
+    expect(mocked.paint).toHaveBeenCalledTimes(1)
+    // Paint more while the answer is on its way: the late answer is for the old painting.
+    await fireEvent.pointerDown(screen.getByRole('gridcell', { name: 'KK' }))
+    finish({ correct: ['AA'], missed: ['KK'], extra: [], combos_wrong: 6, accuracy: 0.99 })
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Check' })).toBeEnabled())
+    expect(screen.queryByRole('heading', { name: '6 combos off' })).toBeNull()
+    expect(screen.getByRole('gridcell', { name: 'KK' })).not.toHaveClass('missed')
+  })
+
+  it('drops a failure for an older painting too', async () => {
+    let fail: (e: Error) => void = () => {}
+    mocked.paint.mockImplementation(() => new Promise<PaintResult>((_, reject) => (fail = reject)))
+    render(Preflop, { params: ['utg-open', 'paint', 'Raise'] })
+    await fireEvent.pointerDown(await screen.findByRole('gridcell', { name: 'AA' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Check' }))
+    await fireEvent.pointerDown(screen.getByRole('gridcell', { name: 'KK' }))
+    fail(new Error('late'))
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Check' })).toBeEnabled())
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('moves focus to the result, then back to the buttons, and announces the result', async () => {
+    mocked.paint.mockResolvedValue({ correct: ['AA'], missed: [], extra: [], combos_wrong: 0, accuracy: 1 })
+    render(Preflop, { params: ['utg-open', 'paint', 'Raise'] })
+    await fireEvent.pointerDown(await screen.findByRole('gridcell', { name: 'AA' }))
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    await fireEvent.click(screen.getByRole('button', { name: 'Check' }))
+    const heading = await screen.findByRole('heading', { name: 'Perfect' })
+    await vi.waitFor(() => expect(heading.closest('section')).toHaveFocus())
+    expect(document.querySelector('[aria-live="polite"]')).toHaveTextContent('Perfect')
   })
 })

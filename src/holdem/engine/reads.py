@@ -184,9 +184,13 @@ def push_value(  # noqa: PLR0915 (one simulation loop reads better in one piece)
     # A caller matches hero's bet as far as its stack goes; a seat that is all in cannot fold.
     matched = {s: min(committed[s] + behind[s], after) for s in seats}
     faced = action.pot + action.amount
+    hero_has_more = behind[HERO] > action.amount  # nobody can raise a player who is all in
     stay = {
         seat: {
-            group: 1 - postflop_odds(styles[seat - 1], group, extra, faced, True)["fold"]
+            group: 1
+            - postflop_odds(
+                styles[seat - 1], group, extra, faced, hero_has_more and behind[seat] > extra
+            )["fold"]
             if (extra := matched[seat] - committed[seat]) > 0
             else 1.0
             for group in CLASSES

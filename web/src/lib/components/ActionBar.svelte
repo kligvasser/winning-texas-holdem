@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Legal } from '../api'
-  import { chipsFromBb, presets, toBb } from '../play'
+  import { presets, toBb } from '../play'
 
   let {
     legal,
@@ -23,14 +23,18 @@
   )
   const raiseWord = $derived(legal.can_check ? 'Bet' : 'Raise')
   let custom = $state('')
-  let invalid = $state(false)
+  let hint = $state('') // why the typed amount was refused
+  const invalid = $derived(hint !== '')
 
   function sendCustom(event: SubmitEvent) {
     event.preventDefault()
-    // "3.5", "3,5" and "3.5bb" all mean the same thing.
-    const typed = custom.trim().toLowerCase().replace(/bb$/, '').replace(',', '.')
-    const to = typed ? chipsFromBb(Number(typed)) : NaN
-    invalid = !(to >= legal.min_raise_to && to <= legal.max_raise_to)
+    // "3.5", "3,5" and "3.5bb" all mean the same thing. Nothing else is a size.
+    const typed = custom.trim().toLowerCase().replace(/\s*bb$/, '').replace(',', '.')
+    const range = `Enter ${toBb(legal.min_raise_to)} to ${toBb(legal.max_raise_to)}bb`
+    const to = /^\d+(\.\d+)?$/.test(typed) ? Number(typed) * 2 : NaN
+    if (!(to >= legal.min_raise_to && to <= legal.max_raise_to)) hint = range
+    else if (!Number.isInteger(to)) hint = 'Sizes go in steps of 0.5bb'
+    else hint = ''
     if (invalid) return
     onact(legal.can_check ? 'bet' : 'raise', to)
     custom = ''
@@ -86,7 +90,7 @@
       <form class="custom" onsubmit={sendCustom}>
         <input
           bind:value={custom}
-          oninput={() => (invalid = false)}
+          oninput={() => (hint = '')}
           inputmode="decimal"
           aria-label="{raiseWord} to (bb)"
           aria-invalid={invalid}
@@ -95,9 +99,7 @@
         />
         <button type="submit" {disabled}>{raiseWord}</button>
         {#if invalid}
-          <span class="hint" role="alert"
-            >Enter {toBb(legal.min_raise_to)} to {toBb(legal.max_raise_to)}bb</span
-          >
+          <span class="hint" role="alert">{hint}</span>
         {/if}
       </form>
     </div>

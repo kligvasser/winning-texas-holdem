@@ -107,11 +107,25 @@ describe('ActionBar', () => {
     await fireEvent.input(field, { target: { value: '12,5bb' } }) // a comma and a unit are fine
     await fireEvent.submit(field.closest('form')!)
     expect(onact).toHaveBeenLastCalledWith('raise', 25)
+    await fireEvent.input(field, { target: { value: '6.5 BB' } })
+    await fireEvent.submit(field.closest('form')!)
+    expect(onact).toHaveBeenLastCalledWith('raise', 13)
     const calls = onact.mock.calls.length
     await fireEvent.input(field, { target: { value: '1' } }) // below the minimum
     await fireEvent.submit(field.closest('form')!)
     expect(field).toHaveAttribute('aria-invalid', 'true')
     expect(screen.getByRole('alert')).toHaveTextContent('Enter 4 to 95bb')
+    for (const odd of ['0x10', '1e1', '-5', 'ten', '5 5']) {
+      await fireEvent.input(field, { target: { value: odd } }) // not sizes, whatever Number() thinks
+      await fireEvent.submit(field.closest('form')!)
+      expect(screen.getByRole('alert')).toHaveTextContent('Enter 4 to 95bb')
+    }
+    await fireEvent.input(field, { target: { value: '6.2' } }) // not rounded behind your back
+    await fireEvent.submit(field.closest('form')!)
+    expect(screen.getByRole('alert')).toHaveTextContent('Sizes go in steps of 0.5bb')
+    expect(onact).toHaveBeenCalledTimes(calls)
+    await fireEvent.input(field, { target: { value: '1' } })
+    await fireEvent.submit(field.closest('form')!)
     await fireEvent.input(field, { target: { value: '' } })
     expect(screen.queryByRole('alert')).toBeNull()
     await fireEvent.submit(field.closest('form')!) // nothing typed

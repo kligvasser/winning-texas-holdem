@@ -173,3 +173,25 @@ def test_equity_falls_back_when_ranges_cannot_be_dealt_together(monkeypatch):
     equity, opponents = equity_against([TAG, NIT], hand, len(hand.log), "flop")
     assert opponents == 2
     assert 0 < equity < 1
+
+
+def test_a_shove_cannot_be_raised(monkeypatch):
+    seen = []
+
+    def odds(style, group, to_call, pot, can_raise):
+        if to_call:  # the reply to hero's bet, not the earlier check that shaped the range
+            seen.append(can_raise)
+        return {"fold": 0.5, "check": 1.0}
+
+    monkeypatch.setattr(reads, "postflop_odds", odds)
+    hand = flop_hand("KdKc")
+    hand.act("check")
+    hand.act("bet", 8)  # a small bet: the callers still have chips to raise with
+    push_value([TAG, NIT], hand, len(hand.log) - 1, samples=5)
+    assert seen and all(seen)
+    seen.clear()
+    shove = flop_hand("KdKc")
+    shove.act("check")
+    shove.act("bet", 194)  # hero is all in
+    push_value([TAG, NIT], shove, len(shove.log) - 1, samples=5)
+    assert seen and not any(seen)

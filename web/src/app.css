@@ -6,16 +6,26 @@
   --border: #cbd9ea;
   --text: #2a1a3a;
   --muted: #5a5670;
-  --accent: #1f8a45;
+  --accent: #14713a;
   --accent-soft: #ffe58a;
   --on-accent: #ffffff;
-  --good: #1f8a45;
+  --good: #14713a;
   --bad: #c62f27;
   --info: #1d5fa8;
   --felt: #15803f;
   --felt-light: #2fbf6b;
   --felt-text: #f2f7f3;
-  --felt-muted: #bcd9c8;
+  --felt-muted: #e6f4eb;
+  /* Felt panels that carry white text: every stop keeps it above 4.5:1. */
+  --felt-a: #157a3b;
+  --felt-b: #116e34;
+  --felt-c: #0d6030;
+  /* How much colour a tinted card takes; kept low enough for grey text to stay readable. */
+  --wash: 26%;
+  --wash-strong: 42%;
+  /* Heat maps: black text on pale cells, white from --heat-flip percent upwards. */
+  --heat: #a32d24;
+  --heat-text: #000000;
   --card-bg: #ffffff;
   --card-border: #c9cfca;
   --suit-spades: #1b1b1b;
@@ -73,8 +83,12 @@
     --felt: #0f6a34;
     --felt-light: #1f9a54;
     --card-bg: #f7f7f2;
-    --act-raise: #c4554a;
-    --act-call: #3d8656;
+    --act-raise: #b84a40;
+    --act-call: #377a4e;
+    --wash: 12%;
+    --wash-strong: 14%;
+    --heat: #b84a40;
+    --heat-text: #ffffff;
     --act-fold: #27302b;
     --act-fold-text: #a9b6ae;
     --grid-gap: #151b18;
@@ -177,4 +191,55 @@ input[type='checkbox'] {
 :focus-visible {
   outline: 3px solid var(--info);
   outline-offset: 2px;
+}
+
+/* Read by screen readers only: live announcements of what just happened. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.retry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 1.1rem;
+  border: var(--line);
+  box-shadow: var(--drop);
+  background: color-mix(in srgb, var(--tomato) var(--wash), var(--surface));
+}
+
+.retry p {
+  margin: 0;
+}
+
+main:focus {
+  outline: none;
+}
+
+@media (pointer: coarse) {
+  /* Text-only buttons still need a finger-sized target. */
+  button.link,
+  button.mute {
+    min-height: 44px !important;
+    padding-inline: 0.5rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

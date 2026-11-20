@@ -7,7 +7,6 @@ Then:  HOLDEM_DATA_DIR=data/demo uv run python -m holdem
 from __future__ import annotations
 
 import random
-import shutil
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -39,8 +38,9 @@ HISTORY = {
 
 def main(data_dir: str) -> None:
     path = Path(data_dir)
-    shutil.rmtree(path, ignore_errors=True)
-    path.mkdir(parents=True)
+    path.mkdir(parents=True, exist_ok=True)
+    for old in path.glob("holdem.sqlite*"):  # only ever the database, never the whole folder
+        old.unlink()
     PreflopEquityDrill.samples = 3000
     rng = random.Random(7)
     engine = make_engine(f"sqlite:///{path / 'holdem.sqlite'}")

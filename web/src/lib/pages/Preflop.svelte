@@ -2,6 +2,7 @@
   import { api, type PaintResult, type Spot, type SpotLeak } from '../api'
   import ActionLegend from '../components/ActionLegend.svelte'
   import RangeGrid from '../components/RangeGrid.svelte'
+  import LoadError from '../components/LoadError.svelte'
   import { percent } from '../format'
   import { classCombos } from '../grid'
   import { href } from '../router.svelte'
@@ -13,8 +14,20 @@
   let error = $state<string | null>(null)
   let painted = $state<string[]>([])
   let result = $state<PaintResult | null>(null)
+  let checking = $state(false)
+  let checkError = $state<string | null>(null)
+  let version = 0 // bumped when the painting changes, so a late result for an older one is dropped
+  let resultBox = $state<HTMLElement>()
+  let actionBox = $state<HTMLElement>()
 
   $effect(() => {
+    // Check and the result replace each other; keep keyboard focus beside them.
+    void result
+    if (document.activeElement === document.body) (resultBox ?? actionBox)?.focus({ preventScroll: true })
+  })
+
+  function load() {
+    error = null
     Promise.all([api.spots(), api.leaks()]).then(
       ([s, l]: [Spot[], SpotLeak[]]) => {
         spots = s
@@ -22,7 +35,9 @@
       },
       (e: Error) => (error = e.message),
     )
-  })
+  }
+
+  $effect(load)
 
   const actions = (s: Spot) => s.choices.filter((c) => c !== 'Fold')
   const spot = $derived(spots?.find((s) => s.id === params[0]))
@@ -34,6 +49,8 @@
 
   function paint(classes: string[]) {
     painted = classes
+    version += 1
+    checkError = null
     result = null // a changed grid makes the old result stale
   }
 
@@ -45,21 +62,28 @@
   }
 
   async function check(s: Spot, action: string) {
+    if (checking) return
+    const mine = version
+    checking = true
+    checkError = null
     try {
-      result = await api.paint(s.id, action, painted)
+      const graded = await api.paint(s.id, action, painted)
+      if (mine === version) result = graded
     } catch (e) {
-      error = (e as Error).message
+      // The painting stays on screen: say what happened next to the button.
+      if (mine === version) checkError = (e as Error).message
+    } finally {
+      checking = false
     }
   }
 
   function reset() {
-    painted = []
-    result = null
+    paint([])
   }
 </script>
 
 {#if error}
-  <p role="alert">Preflop error: {error}</p>
+  <LoadError message="Preflop error: {error}" onretry={load} />
 {:else if spots === null}
   <p>Loading…</p>
 {:else if params[0] && !spot}
@@ -69,7 +93,9 @@
   <h1>Paint the range</h1>
   <p class="lead">
     {spot.position}: {spot.situation} Paint every hand that should <strong>{paintAction}</strong>,
-    then check. Drag to paint several cells.
+    then check. <span class="mouse">Drag to paint several cells.</span><span class="touch"
+      >Tap a cell to paint it.</span
+    >
   </p>
   <RangeGrid
     {painted}
@@ -80,7 +106,7 @@
   />
   <p class="count">{painted.length} hands painted</p>
   {#if result}
-    <section class="result" aria-live="polite">
+    <section class="result" tabindex="-1" bind:this={resultBox}>
       <h2>{result.combos_wrong === 0 ? 'Perfect' : `${result.combos_wrong} combos off`}</h2>
       <p>
         {percent(result.accuracy, 1)} of all combos classified correctly.
@@ -92,13 +118,21 @@
       <button type="button" onclick={reset}>Try again</button>
     </section>
   {:else}
-    <div class="actions">
-      <button type="submit" disabled={painted.length === 0} onclick={() => check(spot, paintAction)}
-        >Check</button
+    <div class="actions" tabindex="-1" bind:this={actionBox}>
+      <button
+        type="submit"
+        disabled={painted.length === 0 || checking}
+        onclick={() => check(spot, paintAction)}>Check</button
       >
       <button type="button" onclick={reset}>Clear</button>
     </div>
+    {#if checkError}
+      <p class="check-error" role="alert">Could not check your range: {checkError}. Your painting is still here; try again.</p>
+    {/if}
   {/if}
+  <p class="sr-only" aria-live="polite">
+    {result ? (result.combos_wrong === 0 ? 'Perfect' : `${result.combos_wrong} combos off`) : ''}
+  </p>
 {:else if spot}
   <nav class="crumbs"><a href={href('preflop')}>← All spots</a></nav>
   <h1>{spot.position}</h1>
@@ -154,6 +188,25 @@
 {/if}
 
 <style>
+  .touch {
+    display: none;
+  }
+  @media (pointer: coarse) {
+    .mouse {
+      display: none;
+    }
+    .touch {
+      display: inline;
+    }
+  }
+  .check-error {
+    color: var(--bad);
+    font-weight: 700;
+  }
+  .result:focus,
+  .actions:focus {
+    outline: none;
+  }
   .lead,
   .source,
   .count,

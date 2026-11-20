@@ -22,6 +22,16 @@ describe('RangeGrid display mode', () => {
     expect(cell('AKs: Raise')).toHaveClass('hl')
     expect(cell('72o: Fold')).toHaveAttribute('aria-selected', 'false')
     expect(cell('72o: Fold')).toHaveAttribute('tabindex', '-1')
+    expect(screen.getAllByRole('row')).toHaveLength(13)
+  })
+
+  it('lets the keyboard walk a chart: one tab stop, arrows move it', async () => {
+    render(RangeGrid, { grid: utgGrid })
+    expect(cell('AA: Raise')).toHaveAttribute('tabindex', '0')
+    cell('AA: Raise').focus()
+    await fireEvent.keyDown(cell('AA: Raise'), { key: 'ArrowRight' })
+    expect(cell('AKs: Raise')).toHaveFocus()
+    expect(cell('AKs: Raise')).toHaveAttribute('tabindex', '0')
   })
 
   it('ignores pointer and keyboard input', async () => {
@@ -78,10 +88,22 @@ describe('RangeGrid paint mode', () => {
     render(RangeGrid, { painted: [], onpaint })
     await fireEvent.pointerDown(cell('QQ'), { pointerType: 'touch' })
     expect(onpaint).not.toHaveBeenCalled()
+    await fireEvent.click(cell('QQ'), { detail: 1 })
+    expect(onpaint).toHaveBeenLastCalledWith(['QQ'])
+  })
+
+  it('toggles on a tap whose click claims to be a mouse click (Safari)', async () => {
+    const onpaint = vi.fn()
+    render(RangeGrid, { painted: [], onpaint })
+    await fireEvent.pointerDown(cell('QQ'), { pointerType: 'touch' })
     const tap = new MouseEvent('click', { bubbles: true, detail: 1 })
-    Object.defineProperty(tap, 'pointerType', { value: 'touch' })
+    Object.defineProperty(tap, 'pointerType', { value: 'mouse' })
     cell('QQ').dispatchEvent(tap)
     expect(onpaint).toHaveBeenLastCalledWith(['QQ'])
+    // A mouse press afterwards is handled on pointerdown again, not twice.
+    await fireEvent.pointerDown(cell('KK'), { pointerType: 'mouse' })
+    await fireEvent.click(cell('KK'), { detail: 1 })
+    expect(onpaint).toHaveBeenCalledTimes(2)
   })
 
   it('moves focus with the arrow keys and stays inside the grid', async () => {

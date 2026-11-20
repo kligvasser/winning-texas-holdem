@@ -87,19 +87,24 @@ class Grade:
 THOUSANDS = re.compile(r"-?\d{1,3}(,\d{3})+(\.\d+)?")
 
 
-def parse_number(response: object) -> float:
+LARGEST_ANSWER = 1e9  # no drill asks for more; a slip like 1e308 would wreck the averages
+
+
+def parse_number(response: object, percent: bool = False) -> float:
     """Accept 25, "25", "25%", " 25 % ", a decimal comma ("0,5") and thousands ("1,326").
 
-    Rejects NaN and infinity.
+    Rejects NaN, infinity and absurdly large values.
     """
     text = str(response).strip().removesuffix("%").strip()
-    text = text.replace(",", "") if THOUSANDS.fullmatch(text) else text.replace(",", ".")
+    # "1,326" is a count in thousands, but a percentage like "33,333" uses a decimal comma.
+    thousands = THOUSANDS.fullmatch(text) and not percent
+    text = text.replace(",", "") if thousands else text.replace(",", ".")
     try:
         value = float(text)
     except ValueError as exc:
         raise ValueError(f"expected a number, got {response!r}") from exc
-    if not math.isfinite(value):
-        raise ValueError(f"expected a finite number, got {response!r}")
+    if not math.isfinite(value) or abs(value) > LARGEST_ANSWER:
+        raise ValueError(f"expected a sensible number, got {str(response)[:40]!r}")
     return value
 
 
@@ -124,7 +129,7 @@ def grade(question: Question, response: float | str | list[str]) -> Grade:
             question.follow_up,
         )
     if question.kind is AnswerKind.NUMBER:
-        value = parse_number(response)
+        value = parse_number(response, percent=question.unit == "%")
         expected = float(question.answer)
         error = value - expected
         correct = abs(error) <= question.tolerance + 1e-9

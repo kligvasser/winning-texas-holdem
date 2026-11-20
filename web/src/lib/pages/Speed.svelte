@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, type DrillMeta } from '../api'
   import SpeedRound from '../components/SpeedRound.svelte'
+  import LoadError from '../components/LoadError.svelte'
   import { href } from '../router.svelte'
 
   let { selected = 'mixed' }: { selected?: string } = $props()
@@ -8,12 +9,15 @@
   let all = $state<DrillMeta[] | null>(null)
   let error = $state<string | null>(null)
 
-  $effect(() => {
+  function load() {
+    error = null
     api.drills().then(
       (list) => (all = list.filter((d) => d.speed)),
       (e: Error) => (error = e.message),
     )
-  })
+  }
+
+  $effect(load)
 
   const chosen = $derived(
     all === null ? [] : selected === 'mixed' ? all : all.filter((d) => d.key === selected),
@@ -24,7 +28,7 @@
 <h1>Speed round{chosen.length === 1 ? `: ${chosen[0].title}` : ''}</h1>
 
 {#if error}
-  <p role="alert">Could not load drills: {error}</p>
+  <LoadError message="Could not load drills: {error}" onretry={load} />
 {:else if all === null}
   <p>Loading…</p>
 {:else if chosen.length === 0}

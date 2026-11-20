@@ -43,7 +43,7 @@ test('a daily session resumes after a reload', async ({ page }, testInfo) => {
 })
 
 test('painting on a phone: taps toggle and swipes scroll', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'phone', 'touch behaviour')
+  test.skip(testInfo.project.name === 'desktop', 'touch behaviour')
   await page.setViewportSize({ width: 412, height: 560 }) // short enough that the page scrolls
   await page.goto('/#/preflop/co-open/paint/Raise')
   await page.getByRole('gridcell', { name: 'AA', exact: true }).tap()
@@ -51,6 +51,7 @@ test('painting on a phone: taps toggle and swipes scroll', async ({ page }, test
   await expect(page.getByText('2 hands painted')).toBeVisible()
   await page.getByRole('gridcell', { name: 'KK', exact: true }).tap()
   await expect(page.getByText('1 hands painted')).toBeVisible()
+  if (testInfo.project.name !== 'phone') return // the swipe below is driven through Chrome's protocol
   // A vertical swipe that starts on the grid scrolls the page and paints nothing.
   const box = await page.getByRole('grid', { name: 'Your range' }).boundingBox()
   if (!box) throw new Error('grid not laid out')

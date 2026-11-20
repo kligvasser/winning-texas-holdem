@@ -368,7 +368,11 @@ def _pair_vs_one_over(rng: random.Random) -> tuple[list[Card], list[Card]]:
 
 
 MATCHUPS: dict[str, tuple[MatchupBuilder, str]] = {
-    "pair vs two overcards": (_pair_vs_overs, "about 55/45, the classic coin flip"),
+    "pair vs two overcards": (
+        _pair_vs_overs,
+        "a coin flip: usually about 55/45 for the pair, closer to 50/50 for a low pair against "
+        "connected cards",
+    ),
     "overpair vs underpair": (_overpair, "about 80/20"),
     "dominated hand": (_domination, "about 70/30"),
     "two overcards vs two undercards": (_overs_vs_unders, "about 60-70 / 30-40"),

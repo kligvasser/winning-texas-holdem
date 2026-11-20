@@ -7,17 +7,18 @@ from collections import OrderedDict
 from collections.abc import Callable
 from datetime import UTC, datetime, tzinfo
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import tzlocal
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import Engine
 
 from holdem.api.deps import SessionDep
 from holdem.api.play_routes import register_play_routes
+from holdem.api.security import add_guards
 from holdem.api.toy_routes import register_toy_routes
 from holdem.curriculum import CONCEPTS, COURSE_MATERIALS
 from holdem.db import drill_stats, make_engine, record_attempt
@@ -50,19 +51,22 @@ class QuestionStore:
         return len(self._items)
 
 
+Short = Annotated[str, StringConstraints(max_length=200)]
+
+
 class QuestionRequest(BaseModel):
     seed: int | None = None
 
 
 class PaintRequest(BaseModel):
-    spot: str
-    action: str
-    classes: list[str]
+    spot: Short
+    action: Short
+    classes: list[Short] = Field(max_length=169)
 
 
 class AnswerRequest(BaseModel):
-    question_id: str
-    response: float | str | list[str]
+    question_id: Short
+    response: float | Short | Annotated[list[Short], Field(max_length=169)]
     elapsed_ms: int | None = Field(default=None, ge=0, le=86_400_000)  # at most a day
 
 
@@ -81,7 +85,9 @@ def create_app(  # noqa: PLR0915 (one flat list of routes)
     clock: Callable[[], datetime] = utc_now,
     zone: tzinfo | None = None,
 ) -> FastAPI:
-    app = FastAPI(title="Winning Texas Hold'em")
+    # No interactive docs: they load scripts from a CDN and nobody needs them here.
+    app = FastAPI(title="Winning Texas Hold'em", docs_url=None, redoc_url=None, openapi_url=None)
+    add_guards(app)
     app.state.engine = engine or make_engine()
     app.state.questions = QuestionStore()
     register_play_routes(app, clock)
@@ -196,9 +202,14 @@ def create_app(  # noqa: PLR0915 (one flat list of routes)
 
         @app.get("/{path:path}", include_in_schema=False)
         def spa(path: str) -> FileResponse:
-            candidate = (web_dist / path).resolve()
-            if path and candidate.is_file() and candidate.is_relative_to(web_dist.resolve()):
-                return FileResponse(candidate)
-            return FileResponse(web_dist / "index.html")
+            if path == "api" or path.startswith("api/"):
+                raise HTTPException(404, "not found")  # a mistyped API call must not get a page
+            index = web_dist / "index.html"
+            try:
+                candidate = (web_dist / path).resolve()
+                inside = candidate.is_relative_to(web_dist.resolve()) and candidate.is_file()
+            except (ValueError, OSError):  # a null byte or an over-long name
+                return FileResponse(index)
+            return FileResponse(candidate if path and inside else index)
 
     return app

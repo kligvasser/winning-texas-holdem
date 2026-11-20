@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, type Activity, type DrillMeta, type DrillStats } from '../api'
   import Heatmap from '../components/Heatmap.svelte'
+  import LoadError from '../components/LoadError.svelte'
   import { EXTRA_TITLES, fixed, percent, seconds, signed, totals } from '../format'
   import { href } from '../router.svelte'
 
@@ -9,7 +10,8 @@
   let titles = $state<Record<string, string>>({})
   let error = $state<string | null>(null)
 
-  $effect(() => {
+  function load() {
+    error = null
     Promise.all([api.stats(), api.drills(), api.activity()]).then(
       ([s, drills, a]: [DrillStats[], DrillMeta[], Activity]) => {
         titles = { ...EXTRA_TITLES, ...Object.fromEntries(drills.map((d) => [d.key, d.title])) }
@@ -18,7 +20,9 @@
       },
       (e: Error) => (error = e.message),
     )
-  })
+  }
+
+  $effect(load)
 
   const drillLink = (key: string) => (key in EXTRA_TITLES ? href('preflop') : href('math-lab', key))
 </script>
@@ -27,7 +31,7 @@
 <p class="note"><a href={href('review')}>Review your played hands →</a></p>
 
 {#if error}
-  <p role="alert">Could not load stats: {error}</p>
+  <LoadError message="Could not load stats: {error}" onretry={load} />
 {:else if stats === null || activity === null}
   <p>Loading…</p>
 {:else if stats.length === 0}
@@ -101,7 +105,7 @@
     align-items: center;
     padding: 0.9rem;
     border-radius: 1.1rem;
-    background: color-mix(in srgb, var(--tint) 30%, var(--surface));
+    background: color-mix(in srgb, var(--tint) var(--wash), var(--surface));
     border: var(--line);
     box-shadow: var(--drop);
   }

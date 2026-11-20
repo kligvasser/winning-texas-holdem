@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
+import threading
 from collections.abc import Callable
 from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import FastAPI, HTTPException, Path, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -27,12 +28,13 @@ class PlayRequest(BaseModel):
 
 
 class ActRequest(BaseModel):
-    kind: str
-    to: int | None = None
+    kind: str = Field(max_length=20)
+    to: int | None = Field(default=None, ge=0, le=1_000_000)
 
 
 def register_play_routes(app: FastAPI, clock: Callable[[], datetime]) -> None:
     sessions: dict[str, PlaySession] = {}
+    lock = threading.Lock()  # requests run on threads; a table changes one request at a time
     app.state.play_sessions = sessions
 
     def find(session_id: str) -> PlaySession:
@@ -54,35 +56,39 @@ def register_play_routes(app: FastAPI, clock: Callable[[], datetime]) -> None:
     @app.post("/api/play")
     def start_play(body: PlayRequest, session: SessionDep) -> dict[str, Any]:
         play = new_session(body.seed, body.carry)
-        sessions[play.id] = play
-        while len(sessions) > MAX_SESSIONS:
-            sessions.pop(next(iter(sessions)))
-        return respond(play, session)
+        with lock:
+            sessions[play.id] = play
+            while len(sessions) > MAX_SESSIONS:
+                sessions.pop(next(iter(sessions)))
+            return respond(play, session)
 
     @app.post("/api/play/{session_id}/act")
     def play_act(session_id: str, body: ActRequest, session: SessionDep) -> dict[str, Any]:
         play = find(session_id)
-        try:
-            play.act(body.kind, body.to)
-        except (IllegalActionError, ValueError) as exc:
-            raise HTTPException(400, str(exc)) from exc
-        return respond(play, session)
+        with lock:
+            try:
+                play.act(body.kind, body.to)
+            except (IllegalActionError, ValueError) as exc:
+                raise HTTPException(400, str(exc)) from exc
+            return respond(play, session)
 
     @app.post("/api/play/{session_id}/next")
     def play_next(session_id: str, session: SessionDep) -> dict[str, Any]:
         play = find(session_id)
-        if not play.hand.finished:
-            raise HTTPException(400, "finish the current hand first")
-        play.new_hand()
-        return respond(play, session)
+        with lock:
+            if not play.hand.finished:
+                raise HTTPException(400, "finish the current hand first")
+            play.new_hand()
+            return respond(play, session)
 
     @app.get("/api/play/{session_id}/coach")
     def play_coach(session_id: str) -> dict[str, Any]:
         play = find(session_id)
-        try:
-            return play.coach()
-        except ValueError as exc:
-            raise HTTPException(400, str(exc)) from exc
+        with lock:
+            try:
+                return play.coach()
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from exc
 
     @app.get("/api/hands")
     def hands(

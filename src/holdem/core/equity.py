@@ -89,11 +89,12 @@ def calculate_equity(
     normalized = [_normalize(p, blocked) for p in players]
     # Known single hands block each other's ranges too.
     known = _known_cards(normalized)
+    if len(known) != 2 * sum(1 for c in normalized if len(c) == 1):
+        raise ValueError("two players hold the same card")
+    # A range that the known hands cut down to one combo is still a range, so check first.
     normalized = [
         combos if len(combos) == 1 else _normalize(combos, blocked | known) for combos in normalized
     ]
-    if len(known) != 2 * sum(1 for c in normalized if len(c) == 1):
-        raise ValueError("two players hold the same card")
 
     to_come = 5 - len(board)
     deck_size = 52 - len(blocked) - 2 * len(players)

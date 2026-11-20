@@ -31,6 +31,10 @@
   const paintSet = $derived(new Set(painted))
   const missed = $derived(new Set(diff?.missed))
   const extra = $derived(new Set(diff?.extra))
+  const ROWS = Array.from({ length: 13 }, (_, row) => ALL_CELLS.slice(row * 13, row * 13 + 13))
+  /** From this share upwards a heat-map cell is dark enough for white text. */
+  const HOT = 76
+  let lastPointer = '' // what pressed last: 'mouse', 'touch' or 'pen'
   let dragValue: boolean | null = null
   let last: { row: number; col: number } | null = null
   let focusIndex = $state(0)
@@ -59,6 +63,7 @@
   }
 
   function start(event: PointerEvent, index: number) {
+    lastPointer = event.pointerType
     // Touch: a tap toggles (handled on click) and a swipe scrolls the page.
     if (!onpaint || event.pointerType === 'touch') return
     event.preventDefault()
@@ -81,8 +86,8 @@
 
   function click(event: MouseEvent, index: number) {
     // Keyboard (detail 0) and touch taps toggle here; mouse presses were handled on pointerdown.
-    const touch = (event as PointerEvent).pointerType === 'touch'
-    if (onpaint && (event.detail === 0 || touch)) {
+    // What pressed is taken from the pointerdown: Safari labels a tap's click as a mouse click.
+    if (onpaint && (event.detail === 0 || lastPointer === 'touch')) {
       const cls = ALL_CELLS[index].cls
       setMany([cls], !paintSet.has(cls))
     }
@@ -104,7 +109,7 @@
   function background(row: number, col: number, cls: string): string {
     if (weights) {
       const share = Math.round(weights[row][col] * 100)
-      return `color-mix(in srgb, var(--act-raise) ${share}%, var(--act-fold))`
+      return `color-mix(in srgb, var(--heat) ${share}%, var(--act-fold))`
     }
     if (grid) return actionColor(grid[row][col])
     return paintSet.has(cls) ? actionColor(paintAction) : 'var(--act-fold)'
@@ -116,12 +121,16 @@
 <div
   class="grid"
   class:paint={onpaint}
+  class:heat={weights}
   role="grid"
   aria-label={label}
   tabindex="-1"
   onpointermove={move}
 >
-  {#each ALL_CELLS as cell, index (cell.cls)}
+  {#each ROWS as row, r (r)}
+  <div role="row">
+  {#each row as cell (cell.cls)}
+    {@const index = cell.row * 13 + cell.col}
     {@const on = weights
       ? weights[cell.row][cell.col] >= 0.5
       : grid
@@ -134,6 +143,7 @@
       data-cls={cell.cls}
       data-index={index}
       class:on
+      class:hot={weights && Math.round(weights[cell.row][cell.col] * 100) >= HOT}
       class:hl={cell.cls === highlight}
       class:missed={missed.has(cell.cls)}
       class:extra={extra.has(cell.cls)}
@@ -143,7 +153,7 @@
         : grid
           ? `${cell.cls}: ${grid[cell.row][cell.col]}`
           : cell.cls}
-      tabindex={onpaint && index === focusIndex ? 0 : -1}
+      tabindex={index === focusIndex ? 0 : -1}
       style:background={background(cell.row, cell.col, cell.cls)}
       onpointerdown={(e) => start(e, index)}
       onclick={(e) => click(e, index)}
@@ -152,6 +162,8 @@
     >
       {cell.cls}
     </button>
+  {/each}
+  </div>
   {/each}
 </div>
 
@@ -169,6 +181,9 @@
     overflow: hidden;
     background: var(--grid-gap);
     user-select: none;
+  }
+  [role='row'] {
+    display: contents;
   }
   .paint {
     touch-action: manipulation;
@@ -198,6 +213,12 @@
   }
   button.on {
     color: var(--act-on-text);
+  }
+  .heat button {
+    color: var(--heat-text);
+  }
+  .heat button.hot {
+    color: #fff;
   }
   .hl {
     outline: 3px solid var(--text);

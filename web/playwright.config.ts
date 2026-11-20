@@ -5,11 +5,14 @@ const PORT = 8765
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
+  workers: 1, // every spec shares one server and one database
   reporter: 'list',
   use: { baseURL: `http://127.0.0.1:${PORT}`, trace: 'retain-on-failure' },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'phone', use: { ...devices['Pixel 7'] } },
+    // Safari's engine: touch taps and audio behave differently from Chrome's.
+    { name: 'iphone', use: { ...devices['iPhone 14'] } },
   ],
   webServer: {
     // Serves the built front end from the real Python backend with a throwaway database.
